@@ -40,12 +40,26 @@ export const register = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
+    // RBAC: Only super_admin or admin can create new admins
+    if (!req.user || (req.user.role !== 'super_admin' && req.user.role !== 'admin')) {
+      return res.status(403).json({ message: 'Only Super Admins can create new users' });
+    }
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    console.log(`Starting registration for: ${email} with role: ${role}`);
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      console.log(`Registration failed: User ${email} already exists`);
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
 
     const user = await User.create({ email, password, role });
+    console.log(`Registration successful: ${user._id}`);
+
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -58,10 +72,20 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Registration Error Details:', error);
+
+    // Check for MongoDB duplication error (code 11000)
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'User already exists' });
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({ message: `A user with this ${field} already exists` });
     }
-    res.status(500).json({ message: error.message });
+
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({ message: messages.join(', ') });
+    }
+
+    res.status(500).json({ message: 'Internal server error during registration' });
   }
 };
 
@@ -93,6 +117,27 @@ export const changePassword = async (req, res) => {
     await user.save();
 
     res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({ role: { $ne: 'super_admin' } }).select('-password');
+    res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

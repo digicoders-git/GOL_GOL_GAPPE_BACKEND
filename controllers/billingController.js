@@ -1,6 +1,7 @@
 import Billing from '../models/Billing.js';
 import Product from '../models/Product.js';
 import StockLog from '../models/StockLog.js';
+import mongoose from 'mongoose';
 
 export const getAllBills = async (req, res) => {
   try {
@@ -90,6 +91,46 @@ export const getBillById = async (req, res) => {
     const bill = await Billing.findById(req.params.id)
       .populate('kitchen', 'name location')
       .populate('items.product', 'name unit');
+
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    res.json({ success: true, bill });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getKitchenOrders = async (req, res) => {
+  try {
+    // Find kitchen assigned to this admin
+    const kitchen = await mongoose.model('Kitchen').findOne({ admin: req.user._id });
+    if (!kitchen) {
+      return res.status(404).json({ message: 'No kitchen assigned to this admin' });
+    }
+
+    const bills = await Billing.find({
+      kitchen: kitchen._id,
+      status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed'] }
+    })
+      .populate('items.product', 'name unit')
+      .sort({ updatedAt: -1 });
+
+    res.json({ success: true, bills });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateBillStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const bill = await Billing.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate('items.product', 'name unit');
 
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });

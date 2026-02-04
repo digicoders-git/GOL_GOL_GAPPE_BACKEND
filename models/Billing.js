@@ -29,7 +29,7 @@ const billingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Paid', 'Cancelled'],
+    enum: ['Pending', 'Paid', 'Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed', 'Cancelled'],
     default: 'Pending'
   },
   paymentMethod: {

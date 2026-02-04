@@ -14,6 +14,10 @@ const kitchenSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   phone: {
     type: String,
     required: true
