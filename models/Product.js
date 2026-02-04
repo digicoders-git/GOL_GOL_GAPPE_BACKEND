@@ -9,12 +9,13 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['ingredients', 'stationery', 'packaging', 'others']
+    enum: ['ingredients', 'snacks', 'packaging', 'others']
   },
   quantity: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
   unit: {
     type: String,
@@ -25,10 +26,14 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 10
   },
+  notes: {
+    type: String,
+    trim: true
+  },
   status: {
     type: String,
     enum: ['In Stock', 'Low Stock', 'Out of Stock'],
-    default: 'In Stock'
+    default: 'Out of Stock'
   }
 }, {
   timestamps: true

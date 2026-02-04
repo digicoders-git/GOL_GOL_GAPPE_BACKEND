@@ -15,13 +15,14 @@ const testAPI = async () => {
     console.log('\n2. Testing Admin Registration...');
     const registerData = {
       username: 'admin',
+      email: 'admin@golgolgappe.com',
       password: 'admin123',
       role: 'admin'
     };
-    
+
     try {
       const register = await axios.post(`${BASE_URL}/auth/register`, registerData);
-      console.log('✅ Admin Registered:', register.data.user.username);
+      console.log('✅ Admin Registered:', register.data.user.email);
     } catch (error) {
       if (error.response?.data?.message === 'User already exists') {
         console.log('ℹ️  Admin already exists, continuing...');
@@ -33,18 +34,18 @@ const testAPI = async () => {
     // Test 3: Login
     console.log('\n3. Testing Login...');
     const login = await axios.post(`${BASE_URL}/auth/login`, {
-      username: 'admin',
+      email: 'admin@golgolgappe.com',
       password: 'admin123'
     });
-    console.log('✅ Login Success:', login.data.user.username);
-    
+    console.log('✅ Login Success:', login.data.user.email);
+
     const token = login.data.token;
     const headers = { Authorization: `Bearer ${token}` };
 
     // Test 4: Get Profile
     console.log('\n4. Testing Get Profile...');
     const profile = await axios.get(`${BASE_URL}/auth/profile`, { headers });
-    console.log('✅ Profile:', profile.data.user.username);
+    console.log('✅ Profile:', profile.data.user.email);
 
     // Test 5: Add Product Quantity
     console.log('\n5. Testing Add Quantity...');

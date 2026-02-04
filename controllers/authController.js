@@ -21,7 +21,7 @@ export const login = async (req, res) => {
     }
 
     const token = generateToken(user._id);
-    
+
     res.json({
       success: true,
       token,
@@ -58,6 +58,9 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -72,6 +75,24 @@ export const getProfile = async (req, res) => {
         role: req.user.role
       }
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user || !(await user.comparePassword(currentPassword))) {
+      return res.status(401).json({ message: 'Invalid current password' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
