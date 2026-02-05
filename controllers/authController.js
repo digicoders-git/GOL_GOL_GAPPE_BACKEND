@@ -60,11 +60,8 @@ export const register = async (req, res) => {
     const user = await User.create({ email, password, role });
     console.log(`Registration successful: ${user._id}`);
 
-    const token = generateToken(user._id);
-
     res.status(201).json({
       success: true,
-      token,
       user: {
         id: user._id,
         email: user.email,
