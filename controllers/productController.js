@@ -112,14 +112,19 @@ export const addQuantity = async (req, res) => {
 
 export const transferStock = async (req, res) => {
   try {
-    const { toUserId, productId, quantity, notes } = req.body;
+    const { toUserId, toUser, productId, product: productKey, quantity, notes } = req.body;
+    const finalToUserId = toUserId || toUser;
+    const finalProductId = productId || productKey;
     const fromUserId = req.user._id;
 
-    const product = await Product.findById(productId);
+    if (!finalProductId) return res.status(400).json({ message: 'Product ID is required' });
+    if (!finalToUserId) return res.status(400).json({ message: 'Recipient User ID is required' });
+
+    const product = await Product.findById(finalProductId);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    // If sender is super_admin, check global product stock
-    if (req.user.role === 'super_admin') {
+    // If sender is super_admin or admin, check global product stock
+    if (req.user.role === 'super_admin' || req.user.role === 'admin') {
       if (product.quantity < quantity) {
         return res.status(400).json({ message: 'Insufficient stock in main inventory' });
       }
@@ -127,7 +132,7 @@ export const transferStock = async (req, res) => {
       await product.save();
     } else {
       // Check sender's specific inventory
-      const fromInv = await UserInventory.findOne({ user: fromUserId, product: productId });
+      const fromInv = await UserInventory.findOne({ user: fromUserId, product: finalProductId });
       if (!fromInv || fromInv.quantity < quantity) {
         return res.status(400).json({ message: 'Insufficient stock in your inventory' });
       }
@@ -136,9 +141,9 @@ export const transferStock = async (req, res) => {
     }
 
     // Increase recipient's stock
-    let toInv = await UserInventory.findOne({ user: toUserId, product: productId });
+    let toInv = await UserInventory.findOne({ user: finalToUserId, product: finalProductId });
     if (!toInv) {
-      toInv = new UserInventory({ user: toUserId, product: productId, quantity: 0 });
+      toInv = new UserInventory({ user: finalToUserId, product: finalProductId, quantity: 0 });
     }
     toInv.quantity += Number(quantity);
     await toInv.save();
@@ -146,8 +151,8 @@ export const transferStock = async (req, res) => {
     // Log the transfer
     await StockTransfer.create({
       fromUser: fromUserId,
-      toUser: toUserId,
-      product: productId,
+      toUser: finalToUserId,
+      product: finalProductId,
       quantity,
       notes
     });
@@ -171,16 +176,20 @@ export const getUserInventory = async (req, res) => {
 
 export const getTransferHistory = async (req, res) => {
   try {
-    const transfers = await StockTransfer.find({
-      $or: [{ fromUser: req.user._id }, { toUser: req.user._id }]
-    })
+    const query = req.user.role === 'super_admin'
+      ? {}
+      : { $or: [{ fromUser: req.user._id }, { toUser: req.user._id }] };
+
+    const transfers = await StockTransfer.find(query)
       .populate('fromUser', 'email role')
       .populate('toUser', 'email role')
       .populate('product', 'name unit')
       .sort({ createdAt: -1 });
 
+    console.log(`Fetched ${transfers.length} transfers for role: ${req.user.role}`);
     res.json({ success: true, transfers });
   } catch (error) {
+    console.error('getTransferHistory error:', error);
     res.status(500).json({ message: error.message });
   }
 };
