@@ -17,6 +17,9 @@ export const createProduct = async (req, res) => {
     const product = await Product.create(req.body);
     res.status(201).json({ success: true, product });
   } catch (error) {
+    if (error.name === 'ValidationError' || error.code === 11000) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -35,6 +38,9 @@ export const updateProduct = async (req, res) => {
 
     res.json({ success: true, product });
   } catch (error) {
+    if (error.name === 'ValidationError' || error.code === 11000) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: error.message });
   }
 };

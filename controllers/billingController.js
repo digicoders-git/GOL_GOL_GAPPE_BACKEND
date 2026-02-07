@@ -5,7 +5,20 @@ import mongoose from 'mongoose';
 
 export const getAllBills = async (req, res) => {
   try {
-    const bills = await Billing.find()
+    let query = {};
+
+    // If not super_admin or admin, filter by kitchen assigned to this user
+    if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
+      const kitchen = await mongoose.model('Kitchen').findOne({ admin: req.user._id });
+      if (kitchen) {
+        query.kitchen = kitchen._id;
+      } else {
+        // If no kitchen assigned to this admin, they shouldn't see any bills
+        return res.json({ success: true, bills: [] });
+      }
+    }
+
+    const bills = await Billing.find(query)
       .populate('kitchen', 'name location')
       .populate('items.product', 'name unit')
       .sort({ createdAt: -1 });
