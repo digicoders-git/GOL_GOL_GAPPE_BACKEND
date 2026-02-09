@@ -1,10 +1,43 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Otp from '../models/Otp.js';
+import Kitchen from '../models/Kitchen.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
     expiresIn: '7d'
   });
+};
+
+export const sendOtp = async (req, res) => {
+  try {
+    const { mobile } = req.body;
+    if (!mobile) return res.status(400).json({ message: 'Mobile number is required' });
+
+    // Check if user is already registered
+    const user = await User.findOne({ mobile });
+
+    // Fixed OTP
+    const otp = '757677';
+
+    // Save/Update OTP in database
+    await Otp.findOneAndUpdate(
+      { mobile },
+      { otp, createdAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    console.log(`[SMS-SERVICE] OTP for ${mobile} is ${otp}`);
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      isRegistered: !!user,
+      otp: process.env.NODE_ENV === 'development' ? otp : undefined
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const login = async (req, res) => {
@@ -22,12 +55,68 @@ export const login = async (req, res) => {
 
     const token = generateToken(user._id);
 
+    let assignedKitchen = null;
+    if (user.role === 'kitchen_admin' || user.role === 'billing_admin') {
+      assignedKitchen = await Kitchen.findOne({
+        $or: [{ admin: user._id }, { billingAdmin: user._id }]
+      }).select('name location');
+    }
+
     res.json({
       success: true,
       token,
       user: {
         id: user._id,
         email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        role: user.role,
+        kitchen: assignedKitchen
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const otpLogin = async (req, res) => {
+  try {
+    const { name, mobile, otp } = req.body;
+
+    if (!mobile || !otp) {
+      return res.status(400).json({ message: 'Mobile and OTP are required' });
+    }
+
+    // Verify OTP from database
+    const otpRecord = await Otp.findOne({ mobile, otp });
+    if (!otpRecord) {
+      return res.status(401).json({ message: 'Invalid OTP' });
+    }
+
+    // Delete OTP after successful verification
+    await Otp.deleteOne({ _id: otpRecord._id });
+
+    let user = await User.findOne({ mobile });
+    let isNewUser = false;
+
+    if (!user) {
+      if (!name) {
+        return res.status(400).json({ message: 'Name is required for first-time registration' });
+      }
+      user = await User.create({ name, mobile, role: 'user' });
+      isNewUser = true;
+    }
+
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      token,
+      isNewUser,
+      user: {
+        id: user._id,
+        name: user.name,
+        mobile: user.mobile,
         role: user.role
       }
     });

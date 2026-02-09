@@ -18,6 +18,11 @@ const kitchenSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  billingAdmin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   phone: {
     type: String,
     required: true

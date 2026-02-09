@@ -6,7 +6,8 @@ import {
   updateBillStatus,
   getBillById,
   deleteBill,
-  getKitchenOrders
+  getKitchenOrders,
+  getUserOrders
 } from '../controllers/billingController.js';
 import auth from '../middleware/auth.js';
 
@@ -15,6 +16,7 @@ const router = express.Router();
 router.use(auth);
 
 router.get('/', getAllBills);
+router.get('/my-orders', getUserOrders);
 router.get('/kitchen-orders', getKitchenOrders);
 router.post('/', createBill);
 router.get('/:id', getBillById);

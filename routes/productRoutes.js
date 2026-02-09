@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getAllProducts,
+  getProductById,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -16,14 +17,20 @@ const router = express.Router();
 
 router.use(auth);
 
-router.get('/', getAllProducts);
-router.post('/', createProduct);
-router.put('/:id', updateProduct);
-router.delete('/:id', deleteProduct);
-router.post('/add-quantity', addQuantity);
-router.post('/transfer', transferStock);
+// Static / specialized routes first to avoid being caught by /:id
 router.get('/user-inventory', getUserInventory);
 router.get('/transfer-history', getTransferHistory);
 router.get('/stock-logs', getStockLogs);
+
+// Parameterized routes last
+router.get('/', getAllProducts);
+router.get('/:id', getProductById);
+router.post('/', createProduct);
+router.put('/:id', updateProduct);
+router.delete('/:id', deleteProduct);
+
+// Action routes
+router.post('/add-quantity', addQuantity);
+router.post('/transfer', transferStock);
 
 export default router;

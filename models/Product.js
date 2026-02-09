@@ -20,8 +20,7 @@ const productSchema = new mongoose.Schema({
   },
   slug: {
     type: String,
-    unique: true,
-    required: true
+    trim: true
   },
   description: {
     type: String,
@@ -112,17 +111,19 @@ const productSchema = new mongoose.Schema({
 });
 
 // Middleware to generate slug from name if not provided
-productSchema.pre('validate', function () {
+productSchema.pre('save', function () {
   if (this.name && !this.slug) {
-    this.slug = this.name
+    let baseSlug = this.name
       .toLowerCase()
       .trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    // Add random suffix to ensure uniqueness if needed (simplified here)
-    if (!this.slug) this.slug = 'product-' + Date.now();
+    if (!baseSlug) baseSlug = 'product';
+
+    // Add timestamp to ensure uniqueness
+    this.slug = `${baseSlug}-${Date.now()}`;
   }
 });
 
