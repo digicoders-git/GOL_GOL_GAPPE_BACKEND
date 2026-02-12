@@ -241,25 +241,35 @@ export const getUserInventory = async (req, res) => {
       return res.json({ success: true, inventory });
     }
 
-    // For kitchen or billing admins, fetch from Kitchen model
+    // For kitchen or billing admins, fetch from UserInventory of the Kitchen Admin
     if (role === 'kitchen_admin' || role === 'billing_admin') {
       const kitchen = await Kitchen.findOne({
         $or: [{ admin: userId }, { billingAdmin: userId }]
-      }).populate({
-        path: 'assignedProducts.product',
-        select: 'name category unit price quantity status minStock thumbnail'
       });
 
-      if (kitchen) {
-        const inventory = kitchen.assignedProducts
-          .filter(ap => ap.product)
-          .map(ap => ({
-            _id: ap._id,
-            product: ap.product,
-            quantity: ap.quantity,
-            user: userId
+      if (kitchen && kitchen.admin) {
+        // Fetch inventory for the KITCHEN ADMIN (who holds the stock)
+        const populatedInventory = await UserInventory.find({ user: kitchen.admin })
+          .populate({
+            path: 'product',
+            select: 'name category unit price quantity status minStock thumbnail'
+          })
+          .lean()
+          .sort({ updatedAt: -1 });
+
+        const validInventory = populatedInventory
+          .filter(item => item.product !== null)
+          .map(item => ({
+            _id: item._id,
+            product: item.product,
+            quantity: item.quantity,
+            user: kitchen.admin // The owner of the stock
           }));
-        return res.json({ success: true, inventory });
+
+        return res.json({ success: true, inventory: validInventory });
+      } else if (role === 'kitchen_admin') {
+        // Fallback for kitchen_admin without a kitchen (improbable but safe)
+        // Just let it fall through to default UserInventory fetch
       }
     }
 
