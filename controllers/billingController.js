@@ -169,26 +169,32 @@ export const getBillById = async (req, res) => {
 
 export const getKitchenOrders = async (req, res) => {
   try {
+    console.log('getKitchenOrders called by:', req.user.email, 'Role:', req.user.role);
     let kitchen;
 
     if (req.user.role === 'kitchen_admin') {
       kitchen = await Kitchen.findOne({ admin: req.user._id });
+      console.log('Kitchen found for kitchen_admin:', kitchen);
     } else if (req.user.role === 'billing_admin') {
-      kitchen = await Kitchen.findById(req.user.kitchen);
+      kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
+      if (!kitchen && req.user.kitchen) {
+        kitchen = await Kitchen.findById(req.user.kitchen);
+      }
+      console.log('Kitchen found for billing_admin:', kitchen);
     }
 
     if (!kitchen) {
-      return res.json({ success: true, bills: [] });
+      console.log('No kitchen found, returning empty array');
+      return res.json({ success: true, bills: [], message: 'No kitchen assigned' });
     }
 
-    const bills = await Billing.find({
-      kitchen: kitchen._id,
-      status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed'] }
-    })
+    console.log('Searching bills for kitchen:', kitchen._id);
+    const bills = await Billing.find({ kitchen: kitchen._id })
       .populate('items.product', 'name unit')
       .populate('kitchen', 'name location')
       .sort({ createdAt: -1 });
 
+    console.log('Bills found:', bills.length);
     res.json({ success: true, bills });
   } catch (error) {
     console.error('getKitchenOrders error:', error);
