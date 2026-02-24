@@ -6,11 +6,12 @@ import kitchenRoutes from "./routes/kitchenRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import billingAdminRoutes from "./routes/billingAdminRoutes.js";
+import offerRoutes from "./routes/offerRoutes.js";
 
 const app = express();
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://gol-gol-gappe-admin-panel.vercel.app'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://gol-gol-gappe-admin-panel.vercel.app'],
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -26,7 +27,8 @@ app.get("/", (req, res) => {
       kitchens: "/api/kitchens",
       billing: "/api/billing",
       users: "/api",
-      billingAdmin: "/api/billing-admin"
+      billingAdmin: "/api/billing-admin",
+      offers: "/api/offers"
     }
   });
 });
@@ -38,6 +40,7 @@ app.use("/api/kitchens", kitchenRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api", userRoutes);
 app.use("/api/billing-admin", billingAdminRoutes);
+app.use("/api/offers", offerRoutes);
 
 // 404 handler
 app.use((req, res) => {
