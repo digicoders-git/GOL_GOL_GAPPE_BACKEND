@@ -9,11 +9,16 @@ import {
   transferStock,
   getUserInventory,
   getTransferHistory,
-  getStockLogs
+  getStockLogs,
+  deleteStockLog,
+  getAvailableProducts
 } from '../controllers/productController.js';
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Public route for user menu (no auth required)
+router.get('/available', getAvailableProducts);
 
 router.use(auth);
 
@@ -21,6 +26,7 @@ router.use(auth);
 router.get('/user-inventory', getUserInventory);
 router.get('/transfer-history', getTransferHistory);
 router.get('/stock-logs', getStockLogs);
+router.delete('/stock-logs/:id', deleteStockLog);
 
 // Parameterized routes last
 router.get('/', getAllProducts);

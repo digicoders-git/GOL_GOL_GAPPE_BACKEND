@@ -379,3 +379,66 @@ export const getStockLogs = async (req, res) => {
     res.status(500).json({ message: error.message, error: error.toString() });
   }
 };
+
+export const deleteStockLog = async (req, res) => {
+  try {
+    const log = await StockLog.findByIdAndDelete(req.params.id);
+    if (!log) {
+      return res.status(404).json({ message: 'Stock log not found' });
+    }
+    res.json({ success: true, message: 'Stock log deleted successfully' });
+  } catch (error) {
+    console.error('deleteStockLog error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAvailableProducts = async (req, res) => {
+  try {
+    // Get all products that are in stock from main inventory
+    const products = await Product.find({
+      inStock: true,
+      quantity: { $gt: 0 }
+    }).select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status').lean();
+
+    // Also check UserInventory for kitchen admins who have stock
+    const userInventories = await UserInventory.find({ quantity: { $gt: 0 } })
+      .populate('product', 'name shortName description category foodType price discountPrice images thumbnail tags')
+      .lean();
+
+    // Merge products from both sources
+    const productMap = new Map();
+    
+    // Add main inventory products
+    products.forEach(p => {
+      productMap.set(p._id.toString(), { ...p, availableQuantity: p.quantity });
+    });
+
+    // Add/update with user inventory products
+    userInventories.forEach(inv => {
+      if (inv.product) {
+        const pid = inv.product._id.toString();
+        if (productMap.has(pid)) {
+          productMap.get(pid).availableQuantity += inv.quantity;
+        } else {
+          productMap.set(pid, {
+            ...inv.product,
+            inStock: true,
+            quantity: inv.quantity,
+            availableQuantity: inv.quantity,
+            status: 'In Stock'
+          });
+        }
+      }
+    });
+
+    const availableProducts = Array.from(productMap.values())
+      .filter(p => p.availableQuantity > 0)
+      .sort((a, b) => a.category.localeCompare(b.category));
+
+    res.json({ success: true, products: availableProducts });
+  } catch (error) {
+    console.error('getAvailableProducts error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

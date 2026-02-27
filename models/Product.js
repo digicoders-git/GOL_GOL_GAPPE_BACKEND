@@ -125,6 +125,18 @@ productSchema.pre('save', function () {
     // Add timestamp to ensure uniqueness
     this.slug = `${baseSlug}-${Date.now()}`;
   }
+
+  // Auto-update inStock and status based on quantity
+  if (this.quantity <= 0) {
+    this.inStock = false;
+    this.status = 'Out of Stock';
+  } else if (this.quantity <= this.minStock) {
+    this.inStock = true;
+    this.status = 'Low Stock';
+  } else {
+    this.inStock = true;
+    this.status = 'In Stock';
+  }
 });
 
 export default mongoose.model('Product', productSchema);
