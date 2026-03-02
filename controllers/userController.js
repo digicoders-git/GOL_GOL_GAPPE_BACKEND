@@ -37,3 +37,18 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, mobile } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, mobile },
+      { new: true }
+    ).select('-password');
+    
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
