@@ -7,7 +7,8 @@ import {
   getBillById,
   deleteBill,
   getKitchenOrders,
-  getUserOrders
+  getUserOrders,
+  getPrintBill
 } from '../controllers/billingController.js';
 import auth from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ router.get('/my-orders', getUserOrders);
 router.get('/kitchen-orders', getKitchenOrders);
 router.post('/', createBill);
 router.get('/:id', getBillById);
+router.get('/:id/print', getPrintBill);
 router.put('/:id', updateBill);
 router.patch('/:id/status', updateBillStatus);
 router.delete('/:id', deleteBill);

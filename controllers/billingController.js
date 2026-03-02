@@ -236,3 +236,21 @@ export const deleteBill = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getPrintBill = async (req, res) => {
+  try {
+    const bill = await Billing.findById(req.params.id)
+      .populate('kitchen', 'name location')
+      .populate('items.product', 'name unit price')
+      .populate('customer');
+
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    res.json({ success: true, bill });
+  } catch (error) {
+    console.error('getPrintBill error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
