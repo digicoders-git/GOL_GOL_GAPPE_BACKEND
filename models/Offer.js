@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const offerSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  image: { type: String, required: true },
+  image: { type: String},
   code: { type: String, required: true, unique: true, uppercase: true },
   discountType: { type: String, enum: ['percentage', 'fixed'], required: true },
   discountValue: { type: Number, required: true },
