@@ -34,17 +34,25 @@ export const validateOffer = async (req, res) => {
     if (orderAmount < offer.minOrderAmount) return res.status(400).json({ message: `Minimum order amount is ₹${offer.minOrderAmount}` });
 
     // Check if offer is applicable to the product
+    let productDetails = null;
     if (offer.applicableProducts.length > 0 && productId) {
-      const isApplicable = offer.applicableProducts.some(p => p._id.toString() === productId.toString());
-      if (!isApplicable) {
+      const applicableProduct = offer.applicableProducts.find(p => p._id.toString() === productId.toString());
+      if (!applicableProduct) {
         return res.status(400).json({ message: 'Offer not applicable to this product' });
       }
+      productDetails = {
+        id: applicableProduct._id,
+        name: applicableProduct.name,
+        basePrice: applicableProduct.price
+      };
     }
 
     // Calculate discount
     const discount = offer.discountType === 'percentage'
       ? (orderAmount * offer.discountValue) / 100
       : offer.discountValue;
+
+    const finalAmount = Math.max(0, orderAmount - Math.round(discount));
 
     res.json({ 
       success: true, 
@@ -54,7 +62,15 @@ export const validateOffer = async (req, res) => {
         discountType: offer.discountType,
         discountValue: offer.discountValue,
         discount: Math.round(discount)
-      }
+      },
+      priceBreakdown: {
+        basePrice: orderAmount,
+        discountPercent: offer.discountType === 'percentage' ? offer.discountValue : null,
+        discountAmount: Math.round(discount),
+        finalPrice: finalAmount,
+        savings: Math.round(discount)
+      },
+      product: productDetails
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
