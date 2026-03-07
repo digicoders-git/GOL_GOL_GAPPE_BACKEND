@@ -79,15 +79,52 @@ export const validateOffer = async (req, res) => {
 
 export const applyOffer = async (req, res) => {
   try {
-    const { code } = req.body;
-    const offer = await Offer.findOne({ code: code.toUpperCase() });
+    const { code, orderAmount, productId } = req.body;
+    const offer = await Offer.findOne({ code: code.toUpperCase() }).populate('applicableProducts');
 
     if (!offer) return res.status(404).json({ message: 'Invalid offer code' });
     
+    // Get product details if productId provided
+    let productDetails = null;
+    if (productId && offer.applicableProducts.length > 0) {
+      const product = offer.applicableProducts.find(p => p._id.toString() === productId.toString());
+      if (product) {
+        productDetails = {
+          id: product._id,
+          name: product.name,
+          basePrice: product.price
+        };
+      }
+    }
+
+    // Calculate discount
+    const discount = offer.discountType === 'percentage'
+      ? (orderAmount * offer.discountValue) / 100
+      : offer.discountValue;
+
+    const finalAmount = Math.max(0, orderAmount - Math.round(discount));
+
     offer.usedCount += 1;
     await offer.save();
 
-    res.json({ success: true, message: 'Offer applied successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Offer applied successfully',
+      offer: {
+        code: offer.code,
+        title: offer.title,
+        discountType: offer.discountType,
+        discountValue: offer.discountValue
+      },
+      priceBreakdown: {
+        basePrice: orderAmount,
+        discountPercent: offer.discountType === 'percentage' ? offer.discountValue : null,
+        discountAmount: Math.round(discount),
+        finalPrice: finalAmount,
+        savings: Math.round(discount)
+      },
+      product: productDetails
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
