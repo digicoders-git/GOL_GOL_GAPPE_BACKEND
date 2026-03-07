@@ -184,9 +184,26 @@ export const getProfile = async (req, res) => {
         name: req.user.name,
         mobile: req.user.mobile,
         email: req.user.email,
+        profilePic: req.user.profilePic,
+        address: req.user.address,
         role: req.user.role
       }
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, mobile, email, profilePic, address } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, mobile, email, profilePic, address },
+      { new: true }
+    ).select('-password');
+    
+    res.json({ success: true, user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -40,10 +40,10 @@ export const deleteUser = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, mobile } = req.body;
+    const { name, mobile, email, profilePic, address } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { name, mobile },
+      { name, mobile, email, profilePic, address },
       { new: true }
     ).select('-password');
     

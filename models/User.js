@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String
   },
+  profilePic: {
+    type: String,
+    trim: true
+  },
+  address: {
+    type: String,
+    trim: true
+  },
   role: {
     type: String,
     enum: ['super_admin', 'billing_admin', 'kitchen_admin', 'user', 'admin'],
