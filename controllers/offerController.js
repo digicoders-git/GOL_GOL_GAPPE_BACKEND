@@ -24,8 +24,8 @@ export const getActiveOffers = async (req, res) => {
 
 export const validateOffer = async (req, res) => {
   try {
-    const { code, orderAmount } = req.body;
-    const offer = await Offer.findOne({ code: code.toUpperCase() });
+    const { code, orderAmount, productId } = req.body;
+    const offer = await Offer.findOne({ code: code.toUpperCase() }).populate('applicableProducts');
 
     if (!offer) return res.status(404).json({ message: 'Invalid offer code' });
     if (!offer.isActive) return res.status(400).json({ message: 'Offer is inactive' });
@@ -33,8 +33,17 @@ export const validateOffer = async (req, res) => {
     if (offer.usedCount >= offer.maxUses) return res.status(400).json({ message: 'Offer limit reached' });
     if (orderAmount < offer.minOrderAmount) return res.status(400).json({ message: `Minimum order amount is ₹${offer.minOrderAmount}` });
 
-    const discount = offer.discountType === 'percentage' 
-      ? (orderAmount * offer.discountValue) / 100 
+    // Check if offer is applicable to the product
+    if (offer.applicableProducts.length > 0 && productId) {
+      const isApplicable = offer.applicableProducts.some(p => p._id.toString() === productId.toString());
+      if (!isApplicable) {
+        return res.status(400).json({ message: 'Offer not applicable to this product' });
+      }
+    }
+
+    // Calculate discount
+    const discount = offer.discountType === 'percentage'
+      ? (orderAmount * offer.discountValue) / 100
       : offer.discountValue;
 
     res.json({ 
