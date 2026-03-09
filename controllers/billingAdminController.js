@@ -51,27 +51,24 @@ export const getMyKitchenOrders = async (req, res) => {
 
 export const getMyKitchenInventory = async (req, res) => {
   try {
-    let kitchen = await Kitchen.findOne({ billingAdmin: req.user._id })
-      .populate('assignedProducts.product', 'name unit price thumbnail');
+    let kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
 
     if (!kitchen && req.user.kitchen) {
-      kitchen = await Kitchen.findById(req.user.kitchen)
-        .populate('assignedProducts.product', 'name unit price thumbnail');
+      kitchen = await Kitchen.findById(req.user.kitchen);
     }
 
     if (!kitchen) {
       return res.json({ success: true, inventory: [] });
     }
 
-    // Convert kitchen's assignedProducts to inventory format
-    const inventory = kitchen.assignedProducts
-      .filter(ap => ap.product) // Only include items with valid products
-      .map(ap => ({
-        _id: ap._id,
-        product: ap.product,
-        quantity: ap.quantity,
-        user: req.user._id
-      }));
+    // Get inventory from kitchen admin's UserInventory
+    if (!kitchen.admin) {
+      return res.json({ success: true, inventory: [] });
+    }
+
+    const inventory = await UserInventory.find({ user: kitchen.admin })
+      .populate('product', 'name unit price thumbnail')
+      .sort({ updatedAt: -1 });
 
     res.json({ success: true, inventory });
   } catch (error) {
