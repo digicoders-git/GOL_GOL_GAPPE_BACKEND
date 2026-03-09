@@ -71,13 +71,20 @@ export const createBill = async (req, res) => {
         }
       }
       
-      // If still no kitchen, use first active kitchen
+      // If still no kitchen, use first active kitchen (sorted by creation date)
       if (!kitchenToAssign) {
         console.log('Finding first active kitchen...');
-        const defaultKitchen = await Kitchen.findOne({ status: 'Active' });
+        const defaultKitchen = await Kitchen.findOne({ status: 'Active' }).sort({ createdAt: -1 });
         if (defaultKitchen) {
           kitchenToAssign = defaultKitchen._id;
           console.log('Assigned default kitchen:', kitchenToAssign);
+        } else {
+          // If no active kitchen, use any kitchen
+          const anyKitchen = await Kitchen.findOne().sort({ createdAt: -1 });
+          if (anyKitchen) {
+            kitchenToAssign = anyKitchen._id;
+            console.log('Assigned any available kitchen:', kitchenToAssign);
+          }
         }
       }
     }
