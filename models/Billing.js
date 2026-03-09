@@ -13,7 +13,7 @@ const billingSchema = new mongoose.Schema({
   kitchen: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Kitchen',
-    required: true
+    required: false
   },
   items: [{
     product: {
