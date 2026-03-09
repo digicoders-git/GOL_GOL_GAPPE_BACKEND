@@ -55,11 +55,26 @@ export const createBill = async (req, res) => {
     const { items, kitchenId, customerName, customerMobile } = req.body;
     const billNumber = `BILL${Date.now()}`;
 
+    // Auto-assign kitchen
+    let kitchenToAssign = req.body.kitchen || kitchenId;
+    
+    if (!kitchenToAssign) {
+      if (req.user.role === 'billing_admin') {
+        // Billing admin ka kitchen
+        const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
+        if (userKitchen) kitchenToAssign = userKitchen._id;
+      } else {
+        // Default: First active kitchen
+        const defaultKitchen = await Kitchen.findOne({ status: 'Active' });
+        if (defaultKitchen) kitchenToAssign = defaultKitchen._id;
+      }
+    }
+
     // Prepare bill data
     const billData = {
       ...req.body,
       billNumber,
-      kitchen: req.body.kitchen || kitchenId,
+      kitchen: kitchenToAssign,
       customer: req.body.customer || {
         name: customerName,
         phone: customerMobile
