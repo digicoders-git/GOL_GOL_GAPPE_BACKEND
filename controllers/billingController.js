@@ -55,20 +55,34 @@ export const createBill = async (req, res) => {
     const { items, kitchenId, customerName, customerMobile } = req.body;
     const billNumber = `BILL${Date.now()}`;
 
-    // Auto-assign kitchen
+    // Auto-assign kitchen - ALWAYS set a kitchen
     let kitchenToAssign = req.body.kitchen || kitchenId;
     
+    // If no kitchen provided, find one
     if (!kitchenToAssign) {
-      if (req.user.role === 'billing_admin') {
-        // Billing admin ka kitchen
+      console.log('No kitchen provided, auto-assigning...');
+      
+      if (req.user && req.user.role === 'billing_admin') {
+        console.log('User is billing_admin, finding their kitchen...');
         const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
-        if (userKitchen) kitchenToAssign = userKitchen._id;
-      } else {
-        // Default: First active kitchen assign karo
+        if (userKitchen) {
+          kitchenToAssign = userKitchen._id;
+          console.log('Assigned billing admin kitchen:', kitchenToAssign);
+        }
+      }
+      
+      // If still no kitchen, use first active kitchen
+      if (!kitchenToAssign) {
+        console.log('Finding first active kitchen...');
         const defaultKitchen = await Kitchen.findOne({ status: 'Active' });
-        if (defaultKitchen) kitchenToAssign = defaultKitchen._id;
+        if (defaultKitchen) {
+          kitchenToAssign = defaultKitchen._id;
+          console.log('Assigned default kitchen:', kitchenToAssign);
+        }
       }
     }
+
+    console.log('Final kitchen assignment:', kitchenToAssign);
 
     // Prepare bill data
     const billData = {
@@ -81,6 +95,8 @@ export const createBill = async (req, res) => {
       },
       status: req.body.status || 'Pending'
     };
+
+    console.log('Creating bill with data:', { billNumber, kitchen: kitchenToAssign });
 
     // Create the bill
     const bill = await Billing.create(billData);
