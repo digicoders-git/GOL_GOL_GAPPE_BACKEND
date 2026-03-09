@@ -4,6 +4,7 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import kitchenRoutes from "./routes/kitchenRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import billingAdminRoutes from "./routes/billingAdminRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
@@ -26,6 +27,7 @@ app.get("/", (req, res) => {
       products: "/api/products",
       kitchens: "/api/kitchens",
       billing: "/api/billing",
+      orders: "/api/orders",
       users: "/api",
       billingAdmin: "/api/billing-admin",
       offers: "/api/offers"
@@ -38,6 +40,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/kitchens", kitchenRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api", userRoutes);
 app.use("/api/billing-admin", billingAdminRoutes);
 app.use("/api/offers", offerRoutes);
