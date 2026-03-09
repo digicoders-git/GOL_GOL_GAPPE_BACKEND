@@ -70,7 +70,10 @@ export const getMyKitchenInventory = async (req, res) => {
       .populate('product', 'name unit price thumbnail')
       .sort({ updatedAt: -1 });
 
-    res.json({ success: true, inventory });
+    // Filter out entries where product is null (deleted products)
+    const validInventory = inventory.filter(item => item.product !== null);
+
+    res.json({ success: true, inventory: validInventory });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
