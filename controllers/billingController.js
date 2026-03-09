@@ -64,7 +64,7 @@ export const createBill = async (req, res) => {
         const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
         if (userKitchen) kitchenToAssign = userKitchen._id;
       } else {
-        // Default: First active kitchen
+        // Default: First active kitchen assign karo
         const defaultKitchen = await Kitchen.findOne({ status: 'Active' });
         if (defaultKitchen) kitchenToAssign = defaultKitchen._id;
       }
