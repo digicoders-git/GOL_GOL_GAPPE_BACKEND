@@ -55,36 +55,30 @@ export const createBill = async (req, res) => {
     const { items, kitchenId, customerName, customerMobile } = req.body;
     const billNumber = `BILL${Date.now()}`;
 
-    // Kitchen assignment logic
-    let kitchenToAssign = req.body.kitchen || kitchenId;
+    // Kitchen assignment logic based on user role
+    let kitchenToAssign = req.body.kitchen || kitchenId || null;
     
-    // Only auto-assign kitchen for billing_admin
+    // Only billing_admin can auto-assign their kitchen
     if (!kitchenToAssign && req.user && req.user.role === 'billing_admin') {
-      console.log('Billing admin creating order, auto-assigning kitchen...');
       const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
       if (userKitchen) {
         kitchenToAssign = userKitchen._id;
-        console.log('Assigned billing admin kitchen:', kitchenToAssign);
       }
     }
     
-    // For other users (customers), kitchen will be null initially
-    // Billing admin will assign it later
-    console.log('Final kitchen assignment:', kitchenToAssign || 'null (to be assigned)');
+    // For regular users, kitchen remains null (billing admin will assign later)
+    console.log('Creating bill - User:', req.user?.email, 'Role:', req.user?.role, 'Kitchen:', kitchenToAssign);
 
     // Prepare bill data
     const billData = {
-      ...req.body,
       billNumber,
-      kitchen: kitchenToAssign || null,
-      customer: req.body.customer || {
-        name: customerName,
-        phone: customerMobile
-      },
-      status: req.body.status || 'Pending'
+      kitchen: kitchenToAssign,
+      customer: req.body.customer || { name: customerName, phone: customerMobile },
+      items: items,
+      totalAmount: req.body.totalAmount,
+      status: req.body.status || 'Pending',
+      paymentMethod: req.body.paymentMethod
     };
-
-    console.log('Creating bill with data:', { billNumber, kitchen: kitchenToAssign || 'null' });
 
     // Create the bill
     const bill = await Billing.create(billData);
