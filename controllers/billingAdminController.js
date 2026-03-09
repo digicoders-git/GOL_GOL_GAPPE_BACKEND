@@ -58,12 +58,12 @@ export const getMyKitchenInventory = async (req, res) => {
     }
 
     if (!kitchen) {
-      return res.json({ success: true, inventory: [] });
+      return res.json({ success: true, inventory: [], message: 'No kitchen found' });
     }
 
     // Get inventory from kitchen admin's UserInventory
     if (!kitchen.admin) {
-      return res.json({ success: true, inventory: [] });
+      return res.json({ success: true, inventory: [], message: 'Kitchen has no admin' });
     }
 
     const inventory = await UserInventory.find({ user: kitchen.admin })
@@ -73,7 +73,16 @@ export const getMyKitchenInventory = async (req, res) => {
     // Filter out entries where product is null (deleted products)
     const validInventory = inventory.filter(item => item.product !== null);
 
-    res.json({ success: true, inventory: validInventory });
+    res.json({ 
+      success: true, 
+      inventory: validInventory,
+      debug: {
+        kitchenId: kitchen._id,
+        kitchenAdmin: kitchen.admin,
+        totalInventoryItems: inventory.length,
+        validItems: validInventory.length
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
