@@ -79,6 +79,16 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Update status based on quantity
+    if (product.quantity > product.minStock) {
+      product.status = 'In Stock';
+    } else if (product.quantity > 0) {
+      product.status = 'Low Stock';
+    } else {
+      product.status = 'Out of Stock';
+    }
+    await product.save();
+
     res.json({ success: true, product });
   } catch (error) {
     if (error.name === 'ValidationError' || error.code === 11000) {
