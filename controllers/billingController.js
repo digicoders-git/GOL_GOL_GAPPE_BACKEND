@@ -273,3 +273,29 @@ export const getPrintBill = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Test endpoint to check kitchen assignment logic
+export const testKitchenAssignment = async (req, res) => {
+  try {
+    const userRole = req.user?.role || 'unknown';
+    const userId = req.user?._id || 'unknown';
+    
+    let result = {
+      userRole,
+      userId,
+      assignedKitchen: null
+    };
+
+    if (userRole === 'billing_admin') {
+      const userKitchen = await Kitchen.findOne({ billingAdmin: userId });
+      result.assignedKitchen = userKitchen;
+    }
+
+    const allKitchens = await Kitchen.find();
+    result.allKitchens = allKitchens;
+
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

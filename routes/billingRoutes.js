@@ -8,7 +8,8 @@ import {
   deleteBill,
   getKitchenOrders,
   getUserOrders,
-  getPrintBill
+  getPrintBill,
+  testKitchenAssignment
 } from '../controllers/billingController.js';
 import auth from '../middleware/auth.js';
 
@@ -16,12 +17,13 @@ const router = express.Router();
 
 router.use(auth);
 
-router.get('/', getAllBills);
+router.get('/test-kitchen', testKitchenAssignment);
 router.get('/my-orders', getUserOrders);
 router.get('/kitchen-orders', getKitchenOrders);
 router.post('/', createBill);
-router.get('/:id', getBillById);
+router.get('/', getAllBills);
 router.get('/:id/print', getPrintBill);
+router.get('/:id', getBillById);
 router.put('/:id', updateBill);
 router.patch('/:id/status', updateBillStatus);
 router.delete('/:id', deleteBill);
