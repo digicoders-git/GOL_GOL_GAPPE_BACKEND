@@ -11,10 +11,29 @@ const createAdmin = async () => {
     console.log('✅ MongoDB Connected');
 
     const userSchema = new mongoose.Schema({
-      email: { type: String, required: true, unique: true },
-      password: { type: String, required: true },
-      role: { type: String, enum: ['admin', 'manager'], default: 'admin' }
+      name: { type: String, trim: true },
+      mobile: { type: String, unique: true, sparse: true, trim: true },
+      email: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
+      password: { type: String },
+      profilePic: { type: String, trim: true },
+      address: { type: String, trim: true },
+      role: {
+        type: String,
+        enum: ['super_admin', 'billing_admin', 'kitchen_admin', 'user', 'admin'],
+        default: 'user'
+      }
     }, { timestamps: true });
+
+    // Hash password before saving
+    userSchema.pre('save', async function () {
+      if (!this.password || !this.isModified('password')) return;
+      this.password = await bcrypt.hash(this.password, 10);
+    });
+
+    userSchema.methods.comparePassword = async function (password) {
+      if (!this.password) return false;
+      return await bcrypt.compare(password, this.password);
+    };
 
     const User = mongoose.model('User', userSchema);
 
@@ -24,17 +43,18 @@ const createAdmin = async () => {
       console.log('ℹ️  Admin user already exists');
       console.log('Email: admin@golgolgappe.com');
       console.log('Password: admin123');
+      console.log('Role:', existingAdmin.role);
       process.exit(0);
     }
 
     // Create new admin
     console.log('👤 Creating admin user...');
-    const hashedPassword = await bcrypt.hash('admin123', 10);
     
     const admin = new User({
+      name: 'Super Admin',
       email: 'admin@golgolgappe.com',
-      password: hashedPassword,
-      role: 'admin'
+      password: 'admin123',
+      role: 'super_admin'
     });
 
     await admin.save();
@@ -43,7 +63,7 @@ const createAdmin = async () => {
     console.log('📋 Login Credentials:');
     console.log('Email: admin@golgolgappe.com');
     console.log('Password: admin123');
-    console.log('Role: admin');
+    console.log('Role: super_admin');
     
     process.exit(0);
   } catch (error) {
