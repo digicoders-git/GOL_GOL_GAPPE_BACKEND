@@ -51,8 +51,19 @@ export const getMyKitchenOrders = async (req, res) => {
 
 export const getMyKitchenInventory = async (req, res) => {
   try {
-    // Billing admin sees their own inventory, not kitchen admin's
-    const inventory = await UserInventory.find({ user: req.user._id })
+    // Find billing admin's kitchen
+    let kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
+
+    if (!kitchen && req.user.kitchen) {
+      kitchen = await Kitchen.findById(req.user.kitchen);
+    }
+
+    if (!kitchen) {
+      return res.json({ success: true, inventory: [] });
+    }
+
+    // Get kitchen admin's inventory (not billing admin's)
+    const inventory = await UserInventory.find({ user: kitchen.admin })
       .populate('product', 'name unit price thumbnail')
       .sort({ updatedAt: -1 });
 

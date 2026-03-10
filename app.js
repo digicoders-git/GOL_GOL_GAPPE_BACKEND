@@ -8,6 +8,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import billingAdminRoutes from "./routes/billingAdminRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
+import testRoutes from "./routes/testRoutes.js";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api", userRoutes);
 app.use("/api/billing-admin", billingAdminRoutes);
 app.use("/api/offers", offerRoutes);
+app.use("/api/test", testRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -7,30 +7,50 @@ import mongoose from 'mongoose';
 
 export const getAllBills = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     let query = {};
 
     if (req.user.role === 'kitchen_admin') {
-      const kitchen = await Kitchen.findOne({ admin: req.user._id });
+      const kitchen = await Kitchen.findOne({ admin: req.user._id }).select('_id').lean();
       if (kitchen) {
         query.kitchen = kitchen._id;
       } else {
-        return res.json({ success: true, bills: [] });
+        return res.json({ success: true, bills: [], pagination: { page, limit, total: 0, pages: 0 } });
       }
     } else if (req.user.role === 'billing_admin') {
-      // Billing admin sees orders for their assigned kitchen
-      const kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
+      const kitchen = await Kitchen.findOne({ billingAdmin: req.user._id }).select('_id').lean();
       if (kitchen) {
         query.kitchen = kitchen._id;
       } else {
-        return res.json({ success: true, bills: [] });
+        return res.json({ success: true, bills: [], pagination: { page, limit, total: 0, pages: 0 } });
       }
     }
 
-    const bills = await Billing.find(query)
-      .populate('kitchen', 'name location')
-      .populate('items.product', 'name unit')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, bills });
+    const [bills, total] = await Promise.all([
+      Billing.find(query)
+        .select('billNumber kitchen customer items totalAmount status createdAt')
+        .populate('kitchen', 'name location')
+        .populate('items.product', 'name unit')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Billing.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      bills,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('getAllBills error:', error);
     res.status(500).json({ message: error.message });
@@ -57,7 +77,7 @@ export const createBill = async (req, res) => {
 
     // Kitchen assignment logic based on user role
     let kitchenToAssign = req.body.kitchen || kitchenId || null;
-    
+
     // Only billing_admin can auto-assign their kitchen
     if (!kitchenToAssign && req.user && req.user.role === 'billing_admin') {
       const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
@@ -65,7 +85,7 @@ export const createBill = async (req, res) => {
         kitchenToAssign = userKitchen._id;
       }
     }
-    
+
     // For regular users, kitchen remains null (billing admin will assign later)
     console.log('Creating bill - User:', req.user?.email, 'Role:', req.user?.role, 'Kitchen:', kitchenToAssign);
 
@@ -273,7 +293,7 @@ export const testKitchenAssignment = async (req, res) => {
   try {
     const userRole = req.user?.role || 'unknown';
     const userId = req.user?._id || 'unknown';
-    
+
     let result = {
       userRole,
       userId,
