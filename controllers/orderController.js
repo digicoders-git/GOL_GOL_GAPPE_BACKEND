@@ -6,6 +6,21 @@ import UserInventory from '../models/UserInventory.js';
 export const createOrder = async (req, res) => {
   try {
     const { items } = req.body;
+    
+    // Check stock for all items
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return res.status(404).json({ message: `Product not found` });
+      }
+      if (!product.inStock || product.quantity <= 0 || product.status === 'Out of Stock') {
+        return res.status(400).json({ message: `${product.name} is out of stock` });
+      }
+      if (product.quantity < item.quantity) {
+        return res.status(400).json({ message: `Only ${product.quantity} ${product.unit} of ${product.name} available` });
+      }
+    }
+    
     const orderNumber = `ORD${Date.now()}`;
 
     const orderData = {

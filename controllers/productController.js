@@ -270,18 +270,9 @@ export const getUserInventory = async (req, res) => {
         const validInventory = populatedInventory
           .filter(item => item.product !== null)
           .map(item => {
-            // Update product status based on UserInventory quantity
-            const updatedProduct = { ...item.product };
-            if (item.quantity === 0) {
-              updatedProduct.status = 'Out of Stock';
-            } else if (item.quantity <= updatedProduct.minStock) {
-              updatedProduct.status = 'Low Stock';
-            } else {
-              updatedProduct.status = 'In Stock';
-            }
             return {
               _id: item._id,
-              product: updatedProduct,
+              product: item.product,
               quantity: item.quantity,
               user: kitchen.admin
             };
@@ -306,18 +297,9 @@ export const getUserInventory = async (req, res) => {
     const validInventory = populatedInventory
       .filter(item => item.product !== null)
       .map(item => {
-        // Update product status based on UserInventory quantity
-        const updatedProduct = { ...item.product };
-        if (item.quantity === 0) {
-          updatedProduct.status = 'Out of Stock';
-        } else if (item.quantity <= updatedProduct.minStock) {
-          updatedProduct.status = 'Low Stock';
-        } else {
-          updatedProduct.status = 'In Stock';
-        }
         return {
           _id: item._id,
-          product: updatedProduct,
+          product: item.product,
           quantity: item.quantity,
           user: userId
         };
