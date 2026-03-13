@@ -21,7 +21,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get("/", (req, res) => {
   res.json({
-    message: "Gol Gol Gappe Admin API 🚀",
+    message: "Gol Gol Gappe Admin API",
     version: "1.0.0",
     endpoints: {
       auth: "/api/auth",
