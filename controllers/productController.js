@@ -7,21 +7,20 @@ import User from '../models/User.js';
 
 export const getAllProducts = async (req, res) => {
   try {
-    console.log('getAllProducts called by user:', req.user?._id, 'role:', req.user?.role);
-    
     const products = await Product.find()
-      .select('name category unit price quantity status minStock thumbnail foodType')
-      .sort({ createdAt: -1 })
-      .lean();
+      .select('name category unit price discountPrice quantity status minStock thumbnail foodType inStock')
+      .sort({ name: 1 })
+      .lean()
+      .maxTimeMS(5000);
     
-    console.log(`Returning ${products.length} products`);
-    return res.json({ 
+    res.json({ 
       success: true, 
-      products
+      products,
+      count: products.length
     });
   } catch (error) {
     console.error('getAllProducts error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to fetch products' });
   }
 };
 
@@ -62,18 +61,19 @@ export const getProductById = async (req, res) => {
 };
 export const createProduct = async (req, res) => {
   try {
-    console.log('Creating product with data:', req.body);
     const product = await Product.create(req.body);
-    console.log('Product created successfully:', product);
+    
+    // Clear cache after creating product
+    const { clearCache } = await import('../middleware/cache.js');
+    clearCache('products');
+    
     res.status(201).json({ success: true, product });
   } catch (error) {
     console.error('Create product error:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
     if (error.name === 'ValidationError' || error.code === 11000) {
-      return res.status(400).json({ message: error.message });
+      return res.status(400).json({ success: false, message: error.message });
     }
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to create product' });
   }
 };
 
@@ -82,29 +82,24 @@ export const updateProduct = async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // Update status based on quantity
-    if (product.quantity > product.minStock) {
-      product.status = 'In Stock';
-    } else if (product.quantity > 0) {
-      product.status = 'Low Stock';
-    } else {
-      product.status = 'Out of Stock';
-    }
-    await product.save();
+    // Clear cache after updating
+    const { clearCache } = await import('../middleware/cache.js');
+    clearCache('products');
 
     res.json({ success: true, product });
   } catch (error) {
+    console.error('Update product error:', error);
     if (error.name === 'ValidationError' || error.code === 11000) {
-      return res.status(400).json({ message: error.message });
+      return res.status(400).json({ success: false, message: error.message });
     }
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to update product' });
   }
 };
 
@@ -419,50 +414,22 @@ export const deleteStockLog = async (req, res) => {
 
 export const getAvailableProducts = async (req, res) => {
   try {
-    // Get all products that are in stock from main inventory
     const products = await Product.find({
       inStock: true,
       quantity: { $gt: 0 }
-    }).select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status').lean();
+    })
+    .select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status')
+    .sort({ category: 1, name: 1 })
+    .lean()
+    .maxTimeMS(3000);
 
-    // Also check UserInventory for kitchen admins who have stock
-    const userInventories = await UserInventory.find({ quantity: { $gt: 0 } })
-      .populate('product', 'name shortName description category foodType price discountPrice images thumbnail tags')
-      .lean();
-
-    // Merge products from both sources
-    const productMap = new Map();
-    
-    // Add main inventory products
-    products.forEach(p => {
-      productMap.set(p._id.toString(), { ...p, availableQuantity: p.quantity });
+    res.json({ 
+      success: true, 
+      products,
+      count: products.length 
     });
-
-    // Add/update with user inventory products
-    userInventories.forEach(inv => {
-      if (inv.product) {
-        const pid = inv.product._id.toString();
-        if (productMap.has(pid)) {
-          productMap.get(pid).availableQuantity += inv.quantity;
-        } else {
-          productMap.set(pid, {
-            ...inv.product,
-            inStock: true,
-            quantity: inv.quantity,
-            availableQuantity: inv.quantity,
-            status: 'In Stock'
-          });
-        }
-      }
-    });
-
-    const availableProducts = Array.from(productMap.values())
-      .filter(p => p.availableQuantity > 0)
-      .sort((a, b) => a.category.localeCompare(b.category));
-
-    res.json({ success: true, products: availableProducts });
   } catch (error) {
     console.error('getAvailableProducts error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to fetch available products' });
   }
 };

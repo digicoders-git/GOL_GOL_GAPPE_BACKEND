@@ -26,9 +26,31 @@ export const getKitchenInventory = async (req, res) => {
 export const getAllKitchens = async (req, res) => {
   try {
     const kitchens = await Kitchen.find()
-      .populate('assignedProducts.product', 'name unit')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, kitchens });
+      .populate('admin', 'name email')
+      .populate('billingAdmin', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const allInventories = await UserInventory.find()
+      .populate('product', 'name unit category');
+
+    const mappedKitchens = kitchens.map(k => {
+      const adminInventories = allInventories.filter(inv => 
+         inv.user && k.admin && inv.user.toString() === k.admin._id.toString()
+      );
+
+      const assignedProducts = adminInventories.map(inv => ({
+         product: inv.product,
+         quantity: inv.quantity
+      }));
+
+      return {
+         ...k,
+         assignedProducts
+      };
+    });
+
+    res.json({ success: true, kitchens: mappedKitchens });
   } catch (error) {
     console.error('getAllKitchens error:', error);
     res.status(500).json({ message: error.message });

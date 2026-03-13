@@ -13,7 +13,7 @@ import testRoutes from "./routes/testRoutes.js";
 const app = express();
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'https://gol-gol-gappe-admin-panel.vercel.app'],
+  origin: true, // Allow all origins in development
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));

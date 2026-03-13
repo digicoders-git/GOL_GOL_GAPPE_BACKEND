@@ -3,6 +3,7 @@ import Product from '../models/Product.js';
 import StockLog from '../models/StockLog.js';
 import UserInventory from '../models/UserInventory.js';
 import Kitchen from '../models/Kitchen.js';
+import Order from '../models/Order.js'; // Added Order model
 import mongoose from 'mongoose';
 
 export const getAllBills = async (req, res) => {
@@ -213,7 +214,7 @@ export const getKitchenOrders = async (req, res) => {
       if (!kitchen && req.user.kitchen) {
         kitchen = await Kitchen.findById(req.user.kitchen);
       }
-      console.log('Kitchen found for billing_admin:', kitchen);
+      console.log('Kitchen found for role', req.user.role, ':', kitchen?._id || 'None');
     }
 
     if (!kitchen) {
@@ -221,14 +222,31 @@ export const getKitchenOrders = async (req, res) => {
       return res.json({ success: true, bills: [], message: 'No kitchen assigned' });
     }
 
-    console.log('Searching bills for kitchen:', kitchen._id);
-    const bills = await Billing.find({ kitchen: kitchen._id })
-      .populate('items.product', 'name unit')
-      .populate('kitchen', 'name location')
-      .sort({ createdAt: -1 });
+    console.log('Searching bills and orders for kitchen:', kitchen._id);
+    
+    // Fetch both POS Bills and Online Orders in parallel
+    const [bills, onlineOrders] = await Promise.all([
+      Billing.find({ kitchen: kitchen._id })
+        .populate('items.product', 'name unit thumbnail category')
+        .populate('kitchen', 'name location')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Order.find({ kitchen: kitchen._id })
+        .populate('items.product', 'name unit thumbnail category')
+        .populate('customer', 'name mobile email')
+        .populate('kitchen', 'name location')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
 
-    console.log('Bills found:', bills.length);
-    res.json({ success: true, bills });
+    // Mark types and merge
+    const merged = [
+      ...bills.map(b => ({ ...b, type: 'BILL' })),
+      ...onlineOrders.map(o => ({ ...o, type: 'ORDER' }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    console.log(`Kitchen data found: Bills(${bills.length}), Orders(${onlineOrders.length})`);
+    res.json({ success: true, bills: merged });
   } catch (error) {
     console.error('getKitchenOrders error:', error);
     res.status(500).json({ message: error.message });

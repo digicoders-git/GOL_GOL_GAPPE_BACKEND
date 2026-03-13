@@ -79,6 +79,76 @@ export const login = async (req, res) => {
   }
 };
 
+export const directLogin = async (req, res) => {
+  try {
+    const { mobile } = req.body;
+
+    if (!mobile) {
+      return res.status(400).json({ message: 'Please provide mobile number' });
+    }
+
+    let user = await User.findOne({ mobile });
+    let isNewUser = false;
+
+    if (!user) {
+      // Automagically register the user if they don't exist
+      user = await User.create({ 
+        name: `User_${mobile.slice(-4)}`, 
+        mobile, 
+        role: 'user' 
+      });
+      isNewUser = true;
+    }
+
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      token,
+      isNewUser,
+      user: {
+        id: user._id,
+        name: user.name,
+        mobile: user.mobile,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const directRegister = async (req, res) => {
+  try {
+    const { name, mobile, password } = req.body;
+
+    if (!name || !mobile || !password) {
+      return res.status(400).json({ message: 'Name, mobile and password are required' });
+    }
+
+    const existingUser = await User.findOne({ mobile });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this mobile number already exists' });
+    }
+
+    const user = await User.create({ name, mobile, password, role: 'user' });
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        mobile: user.mobile,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const otpLogin = async (req, res) => {
   try {
     const { name, mobile, otp } = req.body;
