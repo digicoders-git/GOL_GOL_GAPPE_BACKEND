@@ -41,4 +41,24 @@ export const uploadToCloudinary = async (buffer, folder = 'golgolgappe') => {
   });
 };
 
+// Upload base64 to Cloudinary
+export const uploadBase64ToCloudinary = async (base64String, folder = 'golgolgappe') => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload(base64String, {
+      folder,
+      resource_type: 'image',
+      transformation: [
+        { width: 800, height: 600, crop: 'limit' },
+        { quality: 'auto' }
+      ]
+    }, (error, result) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
+
 export default upload;

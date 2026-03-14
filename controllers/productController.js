@@ -4,12 +4,12 @@ import UserInventory from '../models/UserInventory.js';
 import StockTransfer from '../models/StockTransfer.js';
 import Kitchen from '../models/Kitchen.js';
 import User from '../models/User.js';
-import { uploadToCloudinary } from '../middleware/upload.js';
+import { uploadToCloudinary, uploadBase64ToCloudinary } from '../middleware/upload.js';
+import cloudinary from '../config/cloudinary.js';
 
 export const getAllProducts = async (req, res) => {
   try {
     const products = await Product.find()
-      .select('name category unit price discountPrice quantity status minStock thumbnail foodType inStock')
       .sort({ name: 1 })
       .lean()
       .maxTimeMS(5000);
@@ -27,9 +27,9 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).lean();
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
     // Find UserInventory entries for this product with quantity > 0
@@ -57,25 +57,44 @@ export const getProductById = async (req, res) => {
     res.json({ success: true, product, kitchens: kitchensWithStock });
   } catch (error) {
     console.error('getProductById error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 export const createProduct = async (req, res) => {
   try {
     let productData = { ...req.body };
     
-    // Handle image uploads
-    if (req.files) {
+    // Handle base64 thumbnail upload
+    if (productData.thumbnail && productData.thumbnail.startsWith('data:image')) {
+      const result = await uploadBase64ToCloudinary(productData.thumbnail, 'products/thumbnails');
+      productData.thumbnail = result.secure_url;
+    }
+    
+    // Handle base64 images array upload
+    if (productData.images && Array.isArray(productData.images)) {
       const imageUploads = [];
-      
-      // Upload thumbnail
+      for (const image of productData.images) {
+        if (image.startsWith('data:image')) {
+          const result = await uploadBase64ToCloudinary(image, 'products/images');
+          imageUploads.push(result.secure_url);
+        } else {
+          imageUploads.push(image); // Keep existing URLs
+        }
+      }
+      productData.images = imageUploads;
+    }
+    
+    // Handle file uploads (multipart/form-data)
+    if (req.files) {
+      // Upload thumbnail file
       if (req.files.thumbnail) {
         const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
         productData.thumbnail = result.secure_url;
       }
       
-      // Upload multiple images
+      // Upload multiple image files
       if (req.files.images) {
+        const imageUploads = [];
         for (const file of req.files.images) {
           const result = await uploadToCloudinary(file.buffer, 'products/images');
           imageUploads.push(result.secure_url);
