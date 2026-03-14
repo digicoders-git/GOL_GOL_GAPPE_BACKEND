@@ -62,24 +62,12 @@ export const getAllOrders = async (req, res) => {
   try {
     let query = {};
 
-    if (req.user.role === 'billing_admin') {
-      // Billing admin sees unassigned orders OR orders assigned to their kitchen
-      const kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
-      if (kitchen) {
-        query = {
-          $or: [
-            { kitchen: null },
-            { kitchen: kitchen._id }
-          ]
-        };
-      } else {
-        query.kitchen = null;
-      }
-    } else if (req.user.role === 'kitchen_admin') {
-      const kitchen = await Kitchen.findOne({ admin: req.user._id });
-      if (kitchen) {
-        query.kitchen = kitchen._id;
-      }
+    // Show all orders for billing_admin and kitchen_admin
+    if (req.user.role === 'billing_admin' || req.user.role === 'kitchen_admin' || req.user.role === 'super_admin' || req.user.role === 'admin') {
+      query = {}; // No filter, show all orders
+    } else {
+      // For customers, show only their orders
+      query = { customer: req.user._id };
     }
 
     const orders = await Order.find(query)
