@@ -4,8 +4,8 @@ import UserInventory from '../models/UserInventory.js';
 import StockTransfer from '../models/StockTransfer.js';
 import Kitchen from '../models/Kitchen.js';
 import User from '../models/User.js';
-import { uploadToCloudinary, uploadBase64ToCloudinary } from '../middleware/upload.js';
-import cloudinary from '../config/cloudinary.js';
+import { clearCache } from '../middleware/cache.js';
+import { uploadBase64ToCloudinary } from '../middleware/upload.js';
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -13,9 +13,9 @@ export const getAllProducts = async (req, res) => {
       .sort({ name: 1 })
       .lean()
       .maxTimeMS(5000);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       products,
       count: products.length
     });
@@ -62,11 +62,13 @@ export const getProductById = async (req, res) => {
 };
 export const createProduct = async (req, res) => {
   try {
-    console.log('Creating product with data:', req.body);
-    console.log('Files received:', req.files);
-    
+    console.log('=== CREATE PRODUCT REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request files:', req.files);
+    console.log('User:', req.user?._id, req.user?.role);
+
     let productData = { ...req.body };
-    
+
     // Handle base64 thumbnail upload
     if (productData.thumbnail && productData.thumbnail.startsWith('data:image')) {
       console.log('Uploading base64 thumbnail to Cloudinary...');
@@ -79,7 +81,7 @@ export const createProduct = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
       }
     }
-    
+
     // Handle base64 images array upload
     if (productData.images && Array.isArray(productData.images)) {
       console.log('Uploading base64 images to Cloudinary...');
@@ -100,7 +102,7 @@ export const createProduct = async (req, res) => {
       }
       productData.images = imageUploads;
     }
-    
+
     // Handle file uploads (multipart/form-data)
     if (req.files) {
       // Upload thumbnail file
@@ -115,7 +117,7 @@ export const createProduct = async (req, res) => {
           return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
         }
       }
-      
+
       // Upload multiple image files
       if (req.files.images) {
         console.log('Uploading file images to Cloudinary...');
@@ -133,21 +135,54 @@ export const createProduct = async (req, res) => {
         productData.images = imageUploads;
       }
     }
-    
-    console.log('Final product data before saving:', productData);
+
+    console.log('Final product data before saving:', JSON.stringify(productData, null, 2));
+
     const product = await Product.create(productData);
-    
+    console.log('Product created successfully:', product._id);
+
     // Clear cache after creating product
-    const { clearCache } = await import('../middleware/cache.js');
-    clearCache('products');
-    
+    try {
+      const { clearCache } = await import('../middleware/cache.js');
+      clearCache('products');
+    } catch (cacheError) {
+      console.log('Cache clear failed, but continuing:', cacheError.message);
+    }
+
     res.status(201).json({ success: true, product });
   } catch (error) {
-    console.error('Create product error:', error);
-    if (error.name === 'ValidationError' || error.code === 11000) {
-      return res.status(400).json({ success: false, message: error.message });
+    console.error('=== CREATE PRODUCT ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+
+    if (error.name === 'ValidationError') {
+      console.error('Validation errors:', error.errors);
+      const validationErrors = Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      }));
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
     }
-    res.status(500).json({ success: false, message: 'Failed to create product', error: error.message });
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate entry found',
+        error: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create product',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -155,9 +190,9 @@ export const updateProduct = async (req, res) => {
   try {
     console.log('Updating product with data:', req.body);
     console.log('Files received:', req.files);
-    
+
     let updateData = { ...req.body };
-    
+
     // Handle base64 thumbnail upload
     if (updateData.thumbnail && updateData.thumbnail.startsWith('data:image')) {
       console.log('Uploading base64 thumbnail to Cloudinary...');
@@ -170,7 +205,7 @@ export const updateProduct = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
       }
     }
-    
+
     // Handle base64 images array upload
     if (updateData.images && Array.isArray(updateData.images)) {
       console.log('Uploading base64 images to Cloudinary...');
@@ -191,7 +226,7 @@ export const updateProduct = async (req, res) => {
       }
       updateData.images = imageUploads;
     }
-    
+
     // Handle file uploads (multipart/form-data)
     if (req.files) {
       // Upload new thumbnail
@@ -206,7 +241,7 @@ export const updateProduct = async (req, res) => {
           return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
         }
       }
-      
+
       // Upload new images
       if (req.files.images) {
         console.log('Uploading file images to Cloudinary...');
@@ -237,8 +272,12 @@ export const updateProduct = async (req, res) => {
     }
 
     // Clear cache after updating
-    const { clearCache } = await import('../middleware/cache.js');
-    clearCache('products');
+    try {
+      const { clearCache } = await import('../middleware/cache.js');
+      clearCache('products');
+    } catch (cacheError) {
+      console.log('Cache clear failed, but continuing:', cacheError.message);
+    }
 
     res.json({ success: true, product });
   } catch (error) {
@@ -559,21 +598,48 @@ export const deleteStockLog = async (req, res) => {
   }
 };
 
+export const uploadImage = async (req, res) => {
+  try {
+    const { image, folder = 'products' } = req.body;
+    
+    if (!image || !image.startsWith('data:image')) {
+      return res.status(400).json({ success: false, message: 'Valid base64 image required' });
+    }
+    
+    console.log('Uploading image to Cloudinary folder:', folder);
+    
+    const result = await uploadBase64ToCloudinary(image, folder);
+    
+    res.json({ 
+      success: true, 
+      url: result.secure_url,
+      public_id: result.public_id
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to upload image',
+      error: error.message 
+    });
+  }
+};
+
 export const getAvailableProducts = async (req, res) => {
   try {
     const products = await Product.find({
       inStock: true,
       quantity: { $gt: 0 }
     })
-    .select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status')
-    .sort({ category: 1, name: 1 })
-    .lean()
-    .maxTimeMS(3000);
+      .select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status')
+      .sort({ category: 1, name: 1 })
+      .lean()
+      .maxTimeMS(3000);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       products,
-      count: products.length 
+      count: products.length
     });
   } catch (error) {
     console.error('getAvailableProducts error:', error);

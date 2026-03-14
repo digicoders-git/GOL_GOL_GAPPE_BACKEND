@@ -79,6 +79,19 @@ export const createBill = async (req, res) => {
     // Kitchen assignment logic based on user role
     let kitchenToAssign = req.body.kitchen || kitchenId || null;
 
+    // duplication guard: check if a bill with same customer and total was created in last 5 seconds
+    const fiveSecondsAgo = new Date(Date.now() - 5000);
+    const existingBill = await Billing.findOne({
+      'customer.phone': req.body.customer?.phone || customerMobile,
+      totalAmount: req.body.totalAmount,
+      createdAt: { $gte: fiveSecondsAgo }
+    });
+
+    if (existingBill) {
+      console.log('Duplicate bill creation attempt blocked');
+      return res.status(200).json({ success: true, bill: existingBill, message: 'Existing bill returned' });
+    }
+
     // Only billing_admin can auto-assign their kitchen
     if (!kitchenToAssign && req.user && req.user.role === 'billing_admin') {
       const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id });

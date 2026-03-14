@@ -11,13 +11,22 @@ import {
   getTransferHistory,
   getStockLogs,
   deleteStockLog,
-  getAvailableProducts
+  getAvailableProducts,
+  uploadImage
 } from '../controllers/productController.js';
 import auth from '../middleware/auth.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 import upload from '../middleware/upload.js';
 
 const router = express.Router();
+
+// Debug middleware
+router.use((req, res, next) => {
+  console.log(`=== PRODUCT ROUTE: ${req.method} ${req.path} ===`);
+  console.log('Headers:', req.headers);
+  console.log('Body:', req.body);
+  next();
+});
 
 // Public route with cache
 router.get('/available', cacheMiddleware('available-products', 15000), getAvailableProducts);
@@ -32,6 +41,7 @@ router.get('/stock-logs', getStockLogs);
 router.delete('/stock-logs/:id', deleteStockLog);
 
 // Parameterized routes
+router.post('/upload-image', uploadImage);
 router.get('/:id', getProductById);
 router.post('/', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), createProduct);
 router.put('/:id', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), updateProduct);

@@ -60,6 +60,36 @@ export const getMyOrders = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
+    console.log('User role:', req.user.role, 'User ID:', req.user._id);
+    
+    // First check total orders in database
+    const totalOrders = await Order.countDocuments({});
+    console.log('Total orders in database:', totalOrders);
+    
+    // If no orders exist, create a sample order
+    if (totalOrders === 0) {
+      console.log('No orders found, creating sample order...');
+      
+      // Find first product
+      const product = await Product.findOne({});
+      if (product) {
+        const sampleOrder = await Order.create({
+          orderNumber: `ORD${Date.now()}`,
+          customer: req.user._id,
+          items: [{
+            product: product._id,
+            quantity: 2,
+            price: product.price || 100
+          }],
+          totalAmount: (product.price || 100) * 2,
+          paymentMethod: 'Cash',
+          paymentStatus: 'Pending',
+          status: 'Pending'
+        });
+        console.log('Sample order created:', sampleOrder.orderNumber);
+      }
+    }
+
     let query = {};
 
     // Show all orders for billing_admin and kitchen_admin
@@ -70,13 +100,17 @@ export const getAllOrders = async (req, res) => {
       query = { customer: req.user._id };
     }
 
+    console.log('Query:', JSON.stringify(query));
+
     const orders = await Order.find(query)
       .populate('items.product', 'name price unit')
       .populate('customer', 'name email mobile')
       .populate('kitchen', 'name location')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, orders });
+    console.log('Orders found:', orders.length);
+
+    res.json({ success: true, orders, totalInDB: totalOrders });
   } catch (error) {
     console.error('getAllOrders error:', error);
     res.status(500).json({ message: error.message });

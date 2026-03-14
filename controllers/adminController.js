@@ -101,8 +101,16 @@ export const getAdminDashboard = async (req, res) => {
         todayStart.setHours(0, 0, 0, 0);
         
         const [todayBills, todayOrders] = await Promise.all([
-            Billing.find({ ...billQuery, createdAt: { $gte: todayStart } }).select('totalAmount').lean(),
-            Order.find({ ...billQuery, createdAt: { $gte: todayStart } }).select('totalAmount').lean()
+            Billing.find({ 
+                ...billQuery, 
+                createdAt: { $gte: todayStart },
+                status: 'Completed' // Only count completed bills for revenue
+            }).select('totalAmount').lean(),
+            Order.find({ 
+                ...billQuery, 
+                createdAt: { $gte: todayStart },
+                status: 'Completed' // Only count completed orders for revenue
+            }).select('totalAmount').lean()
         ]);
 
         const combinedRevenue = [...todayBills, ...todayOrders]
@@ -117,7 +125,11 @@ export const getAdminDashboard = async (req, res) => {
             const dayEnd = new Date(dayStart);
             dayEnd.setHours(23, 59, 59, 999);
 
-            const dateFilter = { ...billQuery, createdAt: { $gte: dayStart, $lte: dayEnd } };
+            const dateFilter = { 
+                ...billQuery, 
+                createdAt: { $gte: dayStart, $lte: dayEnd },
+                status: 'Completed' // Only count completed
+            };
             const [dayBills, dayOrders] = await Promise.all([
                 Billing.find(dateFilter).select('totalAmount').lean(),
                 Order.find(dateFilter).select('totalAmount').lean()
