@@ -108,13 +108,37 @@ export const getAdminDashboard = async (req, res) => {
         const combinedRevenue = [...todayBills, ...todayOrders]
             .reduce((sum, t) => sum + (t.totalAmount || 0), 0);
 
+        // Calculate weekly revenue (last 7 days, day-by-day) from real data
+        const weeklyRevenue = [];
+        for (let i = 6; i >= 0; i--) {
+            const dayStart = new Date();
+            dayStart.setDate(dayStart.getDate() - i);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const dateFilter = { ...billQuery, createdAt: { $gte: dayStart, $lte: dayEnd } };
+            const [dayBills, dayOrders] = await Promise.all([
+                Billing.find(dateFilter).select('totalAmount').lean(),
+                Order.find(dateFilter).select('totalAmount').lean()
+            ]);
+            const dayTotal = [...dayBills, ...dayOrders].reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+            weeklyRevenue.push({
+                date: dayStart.toLocaleDateString('en-IN', { weekday: 'short' }),
+                revenue: dayTotal
+            });
+        }
+
         // Calculate low stock count accurately
         // For super_admin, we need a separate count if we limit the products list
         let actualLowStockCount = 0;
+        let outOfStockCount = 0;
         if (role === 'super_admin' || role === 'admin') {
             actualLowStockCount = await Product.countDocuments({ status: 'Low Stock' });
+            outOfStockCount = await Product.countDocuments({ quantity: 0 });
         } else {
-            actualLowStockCount = products.filter(p => (p.quantity || 0) <= (p.minStock || 10)).length;
+            actualLowStockCount = products.filter(p => (p.quantity || 0) <= (p.minStock || 10) && (p.quantity || 0) > 0).length;
+            outOfStockCount = products.filter(p => (p.quantity || 0) === 0).length;
         }
         res.json({
             success: true,
@@ -124,7 +148,9 @@ export const getAdminDashboard = async (req, res) => {
                 totalKitchens: kitchenCount,
                 totalBills: billingCount + orderCount,
                 todayRevenue: combinedRevenue,
-                lowStockCount: actualLowStockCount
+                weeklyRevenue,
+                lowStockCount: actualLowStockCount,
+                outOfStockCount
             },
             recentBills: mergedTransactions, // Frontend uses this key for the list
             products: products.slice(0, 5),
