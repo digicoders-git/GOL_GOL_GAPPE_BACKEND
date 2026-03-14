@@ -62,21 +62,38 @@ export const getProductById = async (req, res) => {
 };
 export const createProduct = async (req, res) => {
   try {
+    console.log('Creating product with data:', req.body);
+    console.log('Files received:', req.files);
+    
     let productData = { ...req.body };
     
     // Handle base64 thumbnail upload
     if (productData.thumbnail && productData.thumbnail.startsWith('data:image')) {
-      const result = await uploadBase64ToCloudinary(productData.thumbnail, 'products/thumbnails');
-      productData.thumbnail = result.secure_url;
+      console.log('Uploading base64 thumbnail to Cloudinary...');
+      try {
+        const result = await uploadBase64ToCloudinary(productData.thumbnail, 'products/thumbnails');
+        productData.thumbnail = result.secure_url;
+        console.log('Thumbnail uploaded successfully:', result.secure_url);
+      } catch (uploadError) {
+        console.error('Thumbnail upload error:', uploadError);
+        return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
+      }
     }
     
     // Handle base64 images array upload
     if (productData.images && Array.isArray(productData.images)) {
+      console.log('Uploading base64 images to Cloudinary...');
       const imageUploads = [];
       for (const image of productData.images) {
         if (image.startsWith('data:image')) {
-          const result = await uploadBase64ToCloudinary(image, 'products/images');
-          imageUploads.push(result.secure_url);
+          try {
+            const result = await uploadBase64ToCloudinary(image, 'products/images');
+            imageUploads.push(result.secure_url);
+            console.log('Image uploaded successfully:', result.secure_url);
+          } catch (uploadError) {
+            console.error('Image upload error:', uploadError);
+            return res.status(500).json({ success: false, message: 'Failed to upload image', error: uploadError.message });
+          }
         } else {
           imageUploads.push(image); // Keep existing URLs
         }
@@ -88,21 +105,36 @@ export const createProduct = async (req, res) => {
     if (req.files) {
       // Upload thumbnail file
       if (req.files.thumbnail) {
-        const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
-        productData.thumbnail = result.secure_url;
+        console.log('Uploading file thumbnail to Cloudinary...');
+        try {
+          const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
+          productData.thumbnail = result.secure_url;
+          console.log('File thumbnail uploaded successfully:', result.secure_url);
+        } catch (uploadError) {
+          console.error('File thumbnail upload error:', uploadError);
+          return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
+        }
       }
       
       // Upload multiple image files
       if (req.files.images) {
+        console.log('Uploading file images to Cloudinary...');
         const imageUploads = [];
         for (const file of req.files.images) {
-          const result = await uploadToCloudinary(file.buffer, 'products/images');
-          imageUploads.push(result.secure_url);
+          try {
+            const result = await uploadToCloudinary(file.buffer, 'products/images');
+            imageUploads.push(result.secure_url);
+            console.log('File image uploaded successfully:', result.secure_url);
+          } catch (uploadError) {
+            console.error('File image upload error:', uploadError);
+            return res.status(500).json({ success: false, message: 'Failed to upload image file', error: uploadError.message });
+          }
         }
         productData.images = imageUploads;
       }
     }
     
+    console.log('Final product data before saving:', productData);
     const product = await Product.create(productData);
     
     // Clear cache after creating product
@@ -115,33 +147,85 @@ export const createProduct = async (req, res) => {
     if (error.name === 'ValidationError' || error.code === 11000) {
       return res.status(400).json({ success: false, message: error.message });
     }
-    res.status(500).json({ success: false, message: 'Failed to create product' });
+    res.status(500).json({ success: false, message: 'Failed to create product', error: error.message });
   }
 };
 
 export const updateProduct = async (req, res) => {
   try {
+    console.log('Updating product with data:', req.body);
+    console.log('Files received:', req.files);
+    
     let updateData = { ...req.body };
     
-    // Handle image uploads
+    // Handle base64 thumbnail upload
+    if (updateData.thumbnail && updateData.thumbnail.startsWith('data:image')) {
+      console.log('Uploading base64 thumbnail to Cloudinary...');
+      try {
+        const result = await uploadBase64ToCloudinary(updateData.thumbnail, 'products/thumbnails');
+        updateData.thumbnail = result.secure_url;
+        console.log('Thumbnail uploaded successfully:', result.secure_url);
+      } catch (uploadError) {
+        console.error('Thumbnail upload error:', uploadError);
+        return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
+      }
+    }
+    
+    // Handle base64 images array upload
+    if (updateData.images && Array.isArray(updateData.images)) {
+      console.log('Uploading base64 images to Cloudinary...');
+      const imageUploads = [];
+      for (const image of updateData.images) {
+        if (image.startsWith('data:image')) {
+          try {
+            const result = await uploadBase64ToCloudinary(image, 'products/images');
+            imageUploads.push(result.secure_url);
+            console.log('Image uploaded successfully:', result.secure_url);
+          } catch (uploadError) {
+            console.error('Image upload error:', uploadError);
+            return res.status(500).json({ success: false, message: 'Failed to upload image', error: uploadError.message });
+          }
+        } else {
+          imageUploads.push(image); // Keep existing URLs
+        }
+      }
+      updateData.images = imageUploads;
+    }
+    
+    // Handle file uploads (multipart/form-data)
     if (req.files) {
       // Upload new thumbnail
       if (req.files.thumbnail) {
-        const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
-        updateData.thumbnail = result.secure_url;
+        console.log('Uploading file thumbnail to Cloudinary...');
+        try {
+          const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
+          updateData.thumbnail = result.secure_url;
+          console.log('File thumbnail uploaded successfully:', result.secure_url);
+        } catch (uploadError) {
+          console.error('File thumbnail upload error:', uploadError);
+          return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
+        }
       }
       
       // Upload new images
       if (req.files.images) {
+        console.log('Uploading file images to Cloudinary...');
         const imageUploads = [];
         for (const file of req.files.images) {
-          const result = await uploadToCloudinary(file.buffer, 'products/images');
-          imageUploads.push(result.secure_url);
+          try {
+            const result = await uploadToCloudinary(file.buffer, 'products/images');
+            imageUploads.push(result.secure_url);
+            console.log('File image uploaded successfully:', result.secure_url);
+          } catch (uploadError) {
+            console.error('File image upload error:', uploadError);
+            return res.status(500).json({ success: false, message: 'Failed to upload image file', error: uploadError.message });
+          }
         }
         updateData.images = imageUploads;
       }
     }
 
+    console.log('Final update data before saving:', updateData);
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -162,7 +246,7 @@ export const updateProduct = async (req, res) => {
     if (error.name === 'ValidationError' || error.code === 11000) {
       return res.status(400).json({ success: false, message: error.message });
     }
-    res.status(500).json({ success: false, message: 'Failed to update product' });
+    res.status(500).json({ success: false, message: 'Failed to update product', error: error.message });
   }
 };
 
