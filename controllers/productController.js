@@ -4,6 +4,7 @@ import UserInventory from '../models/UserInventory.js';
 import StockTransfer from '../models/StockTransfer.js';
 import Kitchen from '../models/Kitchen.js';
 import User from '../models/User.js';
+import { uploadToCloudinary } from '../middleware/upload.js';
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -61,7 +62,29 @@ export const getProductById = async (req, res) => {
 };
 export const createProduct = async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    let productData = { ...req.body };
+    
+    // Handle image uploads
+    if (req.files) {
+      const imageUploads = [];
+      
+      // Upload thumbnail
+      if (req.files.thumbnail) {
+        const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
+        productData.thumbnail = result.secure_url;
+      }
+      
+      // Upload multiple images
+      if (req.files.images) {
+        for (const file of req.files.images) {
+          const result = await uploadToCloudinary(file.buffer, 'products/images');
+          imageUploads.push(result.secure_url);
+        }
+        productData.images = imageUploads;
+      }
+    }
+    
+    const product = await Product.create(productData);
     
     // Clear cache after creating product
     const { clearCache } = await import('../middleware/cache.js');
@@ -79,9 +102,30 @@ export const createProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
+    let updateData = { ...req.body };
+    
+    // Handle image uploads
+    if (req.files) {
+      // Upload new thumbnail
+      if (req.files.thumbnail) {
+        const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
+        updateData.thumbnail = result.secure_url;
+      }
+      
+      // Upload new images
+      if (req.files.images) {
+        const imageUploads = [];
+        for (const file of req.files.images) {
+          const result = await uploadToCloudinary(file.buffer, 'products/images');
+          imageUploads.push(result.secure_url);
+        }
+        updateData.images = imageUploads;
+      }
+    }
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 

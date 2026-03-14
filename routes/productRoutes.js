@@ -15,6 +15,7 @@ import {
 } from '../controllers/productController.js';
 import auth from '../middleware/auth.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -32,8 +33,8 @@ router.delete('/stock-logs/:id', deleteStockLog);
 
 // Parameterized routes
 router.get('/:id', getProductById);
-router.post('/', createProduct);
-router.put('/:id', updateProduct);
+router.post('/', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), createProduct);
+router.put('/:id', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), updateProduct);
 router.delete('/:id', deleteProduct);
 
 // Action routes
