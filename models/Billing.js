@@ -23,6 +23,14 @@ const billingSchema = new mongoose.Schema({
     quantity: Number,
     price: Number
   }],
+  offer: {
+    code: String,
+    offerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Offer'
+    },
+    discountAmount: Number
+  },
   totalAmount: {
     type: Number,
     required: true
@@ -34,7 +42,7 @@ const billingSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['Cash', 'Card', 'UPI', 'Online']
+    required: false
   }
 }, {
   timestamps: true

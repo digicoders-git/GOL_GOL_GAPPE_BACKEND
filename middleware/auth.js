@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 
 const auth = async (req, res, next) => {
   try {
@@ -10,7 +11,14 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    const user = await User.findById(decoded.id);
+    
+    // Try to find in Admin collection first
+    let user = await Admin.findById(decoded.id);
+    
+    // If not found in Admin, try User collection
+    if (!user) {
+      user = await User.findById(decoded.id);
+    }
     
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });

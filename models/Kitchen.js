@@ -16,11 +16,11 @@ const kitchenSchema = new mongoose.Schema({
   },
   admin: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Admin'
   },
   billingAdmin: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Admin',
     required: true
   },
   phone: {
@@ -37,7 +37,14 @@ const kitchenSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product'
     },
-    quantity: Number
+    assigned: {
+      type: Number,
+      default: 0
+    },
+    used: {
+      type: Number,
+      default: 0
+    }
   }]
 }, {
   timestamps: true

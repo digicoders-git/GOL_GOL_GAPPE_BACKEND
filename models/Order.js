@@ -23,6 +23,14 @@ const orderSchema = new mongoose.Schema({
     quantity: Number,
     price: Number
   }],
+  offer: {
+    code: String,
+    offerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Offer'
+    },
+    discountAmount: Number
+  },
   totalAmount: {
     type: Number,
     required: true
@@ -33,8 +41,7 @@ const orderSchema = new mongoose.Schema({
     default: 'Pending'
   },
   paymentMethod: {
-    type: String,
-    enum: ['Cash', 'Card', 'UPI', 'Online']
+    type: String
   },
   paymentStatus: {
     type: String,

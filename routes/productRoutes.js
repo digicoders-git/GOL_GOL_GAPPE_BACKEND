@@ -40,15 +40,15 @@ router.get('/transfer-history', getTransferHistory);
 router.get('/stock-logs', getStockLogs);
 router.delete('/stock-logs/:id', deleteStockLog);
 
-// Parameterized routes
+// Action routes (MUST be before parameterized routes)
 router.post('/upload-image', uploadImage);
+router.post('/add-quantity', addQuantity);
+router.post('/transfer', transferStock);
+
+// Parameterized routes (MUST be last)
 router.get('/:id', getProductById);
 router.post('/', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), createProduct);
 router.put('/:id', upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'images', maxCount: 5 }]), updateProduct);
 router.delete('/:id', deleteProduct);
-
-// Action routes
-router.post('/add-quantity', addQuantity);
-router.post('/transfer', transferStock);
 
 export default router;

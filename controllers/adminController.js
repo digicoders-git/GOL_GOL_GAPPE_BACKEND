@@ -1,9 +1,9 @@
 import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 import Product from '../models/Product.js';
 import Kitchen from '../models/Kitchen.js';
 import Billing from '../models/Billing.js';
 import Order from '../models/Order.js';
-
 import UserInventory from '../models/UserInventory.js';
 
 export const getAdminDashboard = async (req, res) => {
@@ -23,13 +23,14 @@ export const getAdminDashboard = async (req, res) => {
 
         const promises = [
             User.countDocuments().lean(),
+            Admin.countDocuments().lean(),
             Product.countDocuments().lean(),
             Kitchen.countDocuments().lean(),
             Billing.countDocuments(billQuery).lean(),
             Order.countDocuments(billQuery).lean() // Count Orders too
         ];
 
-        // Products logic
+        // Products logic - For billing_admin, get from Kitchen's assignedProducts
         let dashboardProducts = [];
         if (role === 'super_admin' || role === 'admin') {
             dashboardProducts = await Product.find()
@@ -37,22 +38,47 @@ export const getAdminDashboard = async (req, res) => {
                 .limit(10)
                 .sort({ updatedAt: -1 })
                 .lean();
-        } else {
-            // For kitchen or billing admins, find the kitchen and its primary admin
-            const kitchen = await Kitchen.findOne({
-                $or: [{ admin: userId }, { billingAdmin: userId }]
-            });
-
-            const stockOwner = kitchen?.admin || userId;
-            const userInv = await UserInventory.find({ user: stockOwner })
-                .populate('product', 'name price category status minStock thumbnail')
+        } else if (role === 'billing_admin') {
+            // For billing admin, get products from Kitchen's assignedProducts
+            const kitchen = await Kitchen.findOne({ billingAdmin: userId })
+                .populate({
+                    path: 'assignedProducts.product',
+                    select: 'name price category status minStock thumbnail unit'
+                })
                 .lean();
             
-            dashboardProducts = userInv.map(inv => ({
-                ...(inv.product || {}),
-                quantity: inv.quantity,
-                _id: inv.product?._id
-            })).filter(p => p.name);
+            if (kitchen && kitchen.assignedProducts) {
+                dashboardProducts = kitchen.assignedProducts
+                    .filter(ap => ap.product && ap.product.name)
+                    .map(ap => ({
+                        ...ap.product,
+                        quantity: ap.assigned - ap.used, // remaining quantity
+                        assigned: ap.assigned,
+                        used: ap.used,
+                        remaining: ap.assigned - ap.used
+                    }));
+            }
+            console.log('Billing admin dashboard products:', dashboardProducts.length);
+        } else if (role === 'kitchen_admin') {
+            // For kitchen admin, get products from Kitchen's assignedProducts
+            const kitchen = await Kitchen.findOne({ admin: userId })
+                .populate({
+                    path: 'assignedProducts.product',
+                    select: 'name price category status minStock thumbnail unit'
+                })
+                .lean();
+            
+            if (kitchen && kitchen.assignedProducts) {
+                dashboardProducts = kitchen.assignedProducts
+                    .filter(ap => ap.product && ap.product.name)
+                    .map(ap => ({
+                        ...ap.product,
+                        quantity: ap.assigned - ap.used,
+                        assigned: ap.assigned,
+                        used: ap.used,
+                        remaining: ap.assigned - ap.used
+                    }));
+            }
         }
         promises.push(Promise.resolve(dashboardProducts));
 
@@ -83,7 +109,7 @@ export const getAdminDashboard = async (req, res) => {
 
         const results = await Promise.all(promises);
 
-        const [userCount, productCount, kitchenCount, billingCount, orderCount, products, latestBills, latestOrders, kitchens] = results;
+        const [userCount, adminCount, productCount, kitchenCount, billingCount, orderCount, products, latestBills, latestOrders, kitchens] = results;
 
         // Merge and sort recent transactions
         const mergedTransactions = [
@@ -156,6 +182,7 @@ export const getAdminDashboard = async (req, res) => {
             success: true,
             stats: {
                 totalUsers: userCount,
+                totalAdmins: adminCount,
                 totalProducts: (role === 'super_admin' || role === 'admin') ? productCount : products.length,
                 totalKitchens: kitchenCount,
                 totalBills: billingCount + orderCount,

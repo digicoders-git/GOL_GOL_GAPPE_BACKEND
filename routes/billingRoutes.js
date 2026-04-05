@@ -17,15 +17,20 @@ const router = express.Router();
 
 router.use(auth);
 
+// Specific routes FIRST (before :id routes)
 router.get('/test-kitchen', testKitchenAssignment);
 router.get('/my-orders', getUserOrders);
 router.get('/kitchen-orders', getKitchenOrders);
+
+// Generic routes
 router.post('/', createBill);
 router.get('/', getAllBills);
+
+// Routes with :id parameter - specific ones FIRST
 router.get('/:id/print', getPrintBill);
-router.get('/:id', getBillById);
-router.put('/:id', updateBill);
 router.patch('/:id/status', updateBillStatus);
+router.put('/:id', updateBill);
 router.delete('/:id', deleteBill);
+router.get('/:id', getBillById);
 
 export default router;

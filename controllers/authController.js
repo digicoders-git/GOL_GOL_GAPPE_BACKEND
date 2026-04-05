@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 import Otp from '../models/Otp.js';
 import Kitchen from '../models/Kitchen.js';
 
@@ -48,7 +49,16 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ email });
+    // Try to find in Admin collection first
+    let user = await Admin.findOne({ email });
+    let isAdmin = true;
+
+    // If not found in Admin, try User collection
+    if (!user) {
+      user = await User.findOne({ email });
+      isAdmin = false;
+    }
+
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -56,7 +66,7 @@ export const login = async (req, res) => {
     const token = generateToken(user._id);
 
     let assignedKitchen = null;
-    if (user.role === 'kitchen_admin' || user.role === 'billing_admin') {
+    if (isAdmin && (user.role === 'kitchen_admin' || user.role === 'billing_admin')) {
       assignedKitchen = await Kitchen.findOne({
         $or: [{ admin: user._id }, { billingAdmin: user._id }]
       }).select('name location');
@@ -199,41 +209,41 @@ export const register = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // RBAC: Only super_admin or admin can create new admins
-    if (!req.user || (req.user.role !== 'super_admin' && req.user.role !== 'admin')) {
-      return res.status(403).json({ message: 'Only Super Admins can create new users' });
+    // RBAC: Only super_admin can create new admins
+    if (!req.user || req.user.role !== 'super_admin') {
+      return res.status(403).json({ message: 'Only Super Admins can create new admins' });
     }
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    console.log(`Starting registration for: ${email} with role: ${role}`);
+    console.log(`Starting admin registration for: ${email} with role: ${role}`);
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.log(`Registration failed: User ${email} already exists`);
-      return res.status(400).json({ message: 'User with this email already exists' });
+    // Check if admin already exists
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      console.log(`Registration failed: Admin ${email} already exists`);
+      return res.status(400).json({ message: 'Admin with this email already exists' });
     }
 
-    const user = await User.create({ email, password, role });
-    console.log(`Registration successful: ${user._id}`);
+    const admin = await Admin.create({ email, password, role });
+    console.log(`Admin registration successful: ${admin._id}`);
 
     res.status(201).json({
       success: true,
       user: {
-        id: user._id,
-        email: user.email,
-        role: user.role
+        id: admin._id,
+        email: admin.email,
+        role: admin.role
       }
     });
   } catch (error) {
-    console.error('Registration Error Details:', error);
+    console.error('Admin Registration Error Details:', error);
 
-    // Check for MongoDB duplication error (code 11000)
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
-      return res.status(400).json({ message: `A user with this ${field} already exists` });
+      return res.status(400).json({ message: `An admin with this ${field} already exists` });
     }
 
     if (error.name === 'ValidationError') {
@@ -241,22 +251,30 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: messages.join(', ') });
     }
 
-    res.status(500).json({ message: 'Internal server error during registration' });
+    res.status(500).json({ message: 'Internal server error during admin registration' });
   }
 };
 
 export const getProfile = async (req, res) => {
   try {
+    // Fetch fresh user data from appropriate collection
+    let user;
+    if (req.user.role === 'user') {
+      user = await User.findById(req.user._id);
+    } else {
+      user = await Admin.findById(req.user._id);
+    }
+
     res.json({
       success: true,
       user: {
-        id: req.user._id,
-        name: req.user.name,
-        mobile: req.user.mobile,
-        email: req.user.email,
-        profilePic: req.user.profilePic,
-        address: req.user.address,
-        role: req.user.role
+        id: user._id,
+        name: user.name,
+        mobile: user.mobile,
+        email: user.email,
+        profilePic: user.profilePic,
+        address: user.address,
+        role: user.role
       }
     });
   } catch (error) {
@@ -267,11 +285,21 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { name, mobile, email, profilePic, address } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { name, mobile, email, profilePic, address },
-      { new: true }
-    ).select('-password');
+    
+    let user;
+    if (req.user.role === 'user') {
+      user = await User.findByIdAndUpdate(
+        req.user._id,
+        { name, mobile, email, profilePic, address },
+        { new: true }
+      ).select('-password');
+    } else {
+      user = await Admin.findByIdAndUpdate(
+        req.user._id,
+        { name, mobile, email, profilePic, address },
+        { new: true }
+      ).select('-password');
+    }
     
     res.json({ success: true, user });
   } catch (error) {
@@ -282,7 +310,13 @@ export const updateProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = await User.findById(req.user._id);
+    
+    let user;
+    if (req.user.role === 'user') {
+      user = await User.findById(req.user._id);
+    } else {
+      user = await Admin.findById(req.user._id);
+    }
 
     if (!user || !(await user.comparePassword(currentPassword))) {
       return res.status(401).json({ message: 'Invalid current password' });
@@ -299,8 +333,17 @@ export const changePassword = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ role: { $ne: 'super_admin' } }).select('-password');
+    const users = await User.find().select('-password');
     res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find().select('-password');
+    res.json({ success: true, admins });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -313,6 +356,18 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteAdmin = async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndDelete(req.params.id);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    res.json({ success: true, message: 'Admin deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

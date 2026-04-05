@@ -5,24 +5,30 @@ import UserInventory from '../models/UserInventory.js';
 
 export const getMyKitchen = async (req, res) => {
   try {
-    // Check both billingAdmin field and user's kitchen reference
+    console.log('getMyKitchen called for user:', req.user._id, 'role:', req.user.role);
+    
     let kitchen = await Kitchen.findOne({ billingAdmin: req.user._id })
-      .populate('assignedProducts.product', 'name unit price')
+      .populate('assignedProducts.product', 'name unit price category thumbnail')
       .populate('admin', 'email name');
 
-    // If not found by billingAdmin, try by user's kitchen field
+    console.log('Kitchen found by billingAdmin:', kitchen ? kitchen.name : 'null');
+    console.log('Assigned products:', kitchen?.assignedProducts?.length || 0);
+
     if (!kitchen && req.user.kitchen) {
       kitchen = await Kitchen.findById(req.user.kitchen)
-        .populate('assignedProducts.product', 'name unit price')
+        .populate('assignedProducts.product', 'name unit price category thumbnail')
         .populate('admin', 'email name');
+      console.log('Kitchen found by user.kitchen:', kitchen ? kitchen.name : 'null');
     }
 
     if (!kitchen) {
       return res.json({ success: true, kitchen: null, message: 'No kitchen assigned to you' });
     }
 
+    console.log('Returning kitchen:', kitchen.name, 'with', kitchen.assignedProducts.length, 'assigned products');
     res.json({ success: true, kitchen });
   } catch (error) {
+    console.error('getMyKitchen error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -40,10 +46,22 @@ export const getMyKitchenOrders = async (req, res) => {
     }
 
     const [bills, onlineOrders] = await Promise.all([
-      Billing.find({ kitchen: kitchen._id })
+      Billing.find({ 
+        $or: [
+          { kitchen: kitchen._id },
+          { kitchen: { $exists: false } },
+          { kitchen: null }
+        ]
+      })
         .populate('items.product', 'name price unit')
         .sort({ createdAt: -1 }),
-      Order.find({ kitchen: kitchen._id })
+      Order.find({ 
+        $or: [
+          { kitchen: kitchen._id },
+          { kitchen: { $exists: false } },
+          { kitchen: null }
+        ]
+      })
         .populate('items.product', 'name price unit')
         .populate('customer', 'name phone')
         .sort({ createdAt: -1 })

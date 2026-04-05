@@ -5,7 +5,7 @@ import auth from '../middleware/auth.js';
 const router = express.Router();
 
 router.get('/active', getActiveOffers);
-router.post('/validate', validateOffer);
+router.post('/validate', auth, validateOffer);
 router.post('/apply', auth, applyOffer);
 router.get('/', auth, getAllOffers);
 router.post('/', auth, createOffer);

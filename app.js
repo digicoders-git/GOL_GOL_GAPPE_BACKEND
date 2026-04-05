@@ -11,6 +11,9 @@ import userRoutes from "./routes/userRoutes.js";
 import billingAdminRoutes from "./routes/billingAdminRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
 import testRoutes from "./routes/testRoutes.js";
+import billingTestRoutes from "./routes/billingTestRoutes.js";
+import billingDebugRoutes from "./routes/billingDebugRoutes.js";
+import orderDebugRoutes from "./routes/orderDebugRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +57,9 @@ app.use("/api", userRoutes);
 app.use("/api/billing-admin", billingAdminRoutes);
 app.use("/api/offers", offerRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/billing-test", billingTestRoutes);
+app.use("/api/billing-debug", billingDebugRoutes);
+app.use("/api/order-debug", orderDebugRoutes);
 
 // 404 handler
 app.use((req, res) => {

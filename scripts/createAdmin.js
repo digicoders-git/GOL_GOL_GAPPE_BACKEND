@@ -10,7 +10,7 @@ const createAdmin = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ MongoDB Connected');
 
-    const userSchema = new mongoose.Schema({
+    const adminSchema = new mongoose.Schema({
       name: { type: String, trim: true },
       mobile: { type: String, unique: true, sparse: true, trim: true },
       email: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
@@ -19,26 +19,26 @@ const createAdmin = async () => {
       address: { type: String, trim: true },
       role: {
         type: String,
-        enum: ['super_admin', 'billing_admin', 'kitchen_admin', 'user', 'admin'],
-        default: 'user'
+        enum: ['super_admin', 'billing_admin', 'kitchen_admin'],
+        default: 'billing_admin'
       }
     }, { timestamps: true });
 
     // Hash password before saving
-    userSchema.pre('save', async function () {
+    adminSchema.pre('save', async function () {
       if (!this.password || !this.isModified('password')) return;
       this.password = await bcrypt.hash(this.password, 10);
     });
 
-    userSchema.methods.comparePassword = async function (password) {
+    adminSchema.methods.comparePassword = async function (password) {
       if (!this.password) return false;
       return await bcrypt.compare(password, this.password);
     };
 
-    const User = mongoose.model('User', userSchema);
+    const Admin = mongoose.model('Admin', adminSchema);
 
     // Check if admin already exists
-    const existingAdmin = await User.findOne({ email: 'admin@golgolgappe.com' });
+    const existingAdmin = await Admin.findOne({ email: 'admin@golgolgappe.com' });
     if (existingAdmin) {
       console.log('ℹ️  Admin user already exists');
       console.log('Email: admin@golgolgappe.com');
@@ -50,7 +50,7 @@ const createAdmin = async () => {
     // Create new admin
     console.log('👤 Creating admin user...');
     
-    const admin = new User({
+    const admin = new Admin({
       name: 'Super Admin',
       email: 'admin@golgolgappe.com',
       password: 'admin123',

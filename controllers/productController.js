@@ -4,8 +4,9 @@ import UserInventory from '../models/UserInventory.js';
 import StockTransfer from '../models/StockTransfer.js';
 import Kitchen from '../models/Kitchen.js';
 import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 import { clearCache } from '../middleware/cache.js';
-import { uploadBase64ToCloudinary } from '../middleware/upload.js';
+import { saveBase64Locally } from '../middleware/localUpload.js';
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -71,69 +72,30 @@ export const createProduct = async (req, res) => {
 
     // Handle base64 thumbnail upload
     if (productData.thumbnail && productData.thumbnail.startsWith('data:image')) {
-      console.log('Uploading base64 thumbnail to Cloudinary...');
       try {
-        const result = await uploadBase64ToCloudinary(productData.thumbnail, 'products/thumbnails');
+        const result = await saveBase64Locally(productData.thumbnail, 'products/thumbnails');
         productData.thumbnail = result.secure_url;
-        console.log('Thumbnail uploaded successfully:', result.secure_url);
       } catch (uploadError) {
-        console.error('Thumbnail upload error:', uploadError);
-        return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
+        return res.status(500).json({ success: false, message: 'Failed to save thumbnail', error: uploadError.message });
       }
     }
 
     // Handle base64 images array upload
     if (productData.images && Array.isArray(productData.images)) {
-      console.log('Uploading base64 images to Cloudinary...');
       const imageUploads = [];
       for (const image of productData.images) {
         if (image.startsWith('data:image')) {
           try {
-            const result = await uploadBase64ToCloudinary(image, 'products/images');
+            const result = await saveBase64Locally(image, 'products/images');
             imageUploads.push(result.secure_url);
-            console.log('Image uploaded successfully:', result.secure_url);
           } catch (uploadError) {
-            console.error('Image upload error:', uploadError);
-            return res.status(500).json({ success: false, message: 'Failed to upload image', error: uploadError.message });
+            return res.status(500).json({ success: false, message: 'Failed to save image', error: uploadError.message });
           }
         } else {
-          imageUploads.push(image); // Keep existing URLs
+          imageUploads.push(image);
         }
       }
       productData.images = imageUploads;
-    }
-
-    // Handle file uploads (multipart/form-data)
-    if (req.files) {
-      // Upload thumbnail file
-      if (req.files.thumbnail) {
-        console.log('Uploading file thumbnail to Cloudinary...');
-        try {
-          const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
-          productData.thumbnail = result.secure_url;
-          console.log('File thumbnail uploaded successfully:', result.secure_url);
-        } catch (uploadError) {
-          console.error('File thumbnail upload error:', uploadError);
-          return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
-        }
-      }
-
-      // Upload multiple image files
-      if (req.files.images) {
-        console.log('Uploading file images to Cloudinary...');
-        const imageUploads = [];
-        for (const file of req.files.images) {
-          try {
-            const result = await uploadToCloudinary(file.buffer, 'products/images');
-            imageUploads.push(result.secure_url);
-            console.log('File image uploaded successfully:', result.secure_url);
-          } catch (uploadError) {
-            console.error('File image upload error:', uploadError);
-            return res.status(500).json({ success: false, message: 'Failed to upload image file', error: uploadError.message });
-          }
-        }
-        productData.images = imageUploads;
-      }
     }
 
     console.log('Final product data before saving:', JSON.stringify(productData, null, 2));
@@ -195,69 +157,30 @@ export const updateProduct = async (req, res) => {
 
     // Handle base64 thumbnail upload
     if (updateData.thumbnail && updateData.thumbnail.startsWith('data:image')) {
-      console.log('Uploading base64 thumbnail to Cloudinary...');
       try {
-        const result = await uploadBase64ToCloudinary(updateData.thumbnail, 'products/thumbnails');
+        const result = await saveBase64Locally(updateData.thumbnail, 'products/thumbnails');
         updateData.thumbnail = result.secure_url;
-        console.log('Thumbnail uploaded successfully:', result.secure_url);
       } catch (uploadError) {
-        console.error('Thumbnail upload error:', uploadError);
-        return res.status(500).json({ success: false, message: 'Failed to upload thumbnail', error: uploadError.message });
+        return res.status(500).json({ success: false, message: 'Failed to save thumbnail', error: uploadError.message });
       }
     }
 
     // Handle base64 images array upload
     if (updateData.images && Array.isArray(updateData.images)) {
-      console.log('Uploading base64 images to Cloudinary...');
       const imageUploads = [];
       for (const image of updateData.images) {
         if (image.startsWith('data:image')) {
           try {
-            const result = await uploadBase64ToCloudinary(image, 'products/images');
+            const result = await saveBase64Locally(image, 'products/images');
             imageUploads.push(result.secure_url);
-            console.log('Image uploaded successfully:', result.secure_url);
           } catch (uploadError) {
-            console.error('Image upload error:', uploadError);
-            return res.status(500).json({ success: false, message: 'Failed to upload image', error: uploadError.message });
+            return res.status(500).json({ success: false, message: 'Failed to save image', error: uploadError.message });
           }
         } else {
-          imageUploads.push(image); // Keep existing URLs
+          imageUploads.push(image);
         }
       }
       updateData.images = imageUploads;
-    }
-
-    // Handle file uploads (multipart/form-data)
-    if (req.files) {
-      // Upload new thumbnail
-      if (req.files.thumbnail) {
-        console.log('Uploading file thumbnail to Cloudinary...');
-        try {
-          const result = await uploadToCloudinary(req.files.thumbnail[0].buffer, 'products/thumbnails');
-          updateData.thumbnail = result.secure_url;
-          console.log('File thumbnail uploaded successfully:', result.secure_url);
-        } catch (uploadError) {
-          console.error('File thumbnail upload error:', uploadError);
-          return res.status(500).json({ success: false, message: 'Failed to upload thumbnail file', error: uploadError.message });
-        }
-      }
-
-      // Upload new images
-      if (req.files.images) {
-        console.log('Uploading file images to Cloudinary...');
-        const imageUploads = [];
-        for (const file of req.files.images) {
-          try {
-            const result = await uploadToCloudinary(file.buffer, 'products/images');
-            imageUploads.push(result.secure_url);
-            console.log('File image uploaded successfully:', result.secure_url);
-          } catch (uploadError) {
-            console.error('File image upload error:', uploadError);
-            return res.status(500).json({ success: false, message: 'Failed to upload image file', error: uploadError.message });
-          }
-        }
-        updateData.images = imageUploads;
-      }
     }
 
     console.log('Final update data before saving:', updateData);
@@ -373,7 +296,14 @@ export const transferStock = async (req, res) => {
     const product = await Product.findById(finalProductId);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const recipient = await User.findById(finalToUserId);
+    // Try to find recipient in Admin collection first (kitchen_admin is there)
+    let recipient = await Admin.findById(finalToUserId);
+
+    // If not found in Admin, try User collection
+    if (!recipient) {
+      recipient = await User.findById(finalToUserId);
+    }
+
     if (!recipient) return res.status(404).json({ message: 'Recipient not found' });
     if (recipient.role !== 'kitchen_admin') {
       return res.status(403).json({ message: 'Stock can only be assigned to Kitchen Admins' });
@@ -396,13 +326,36 @@ export const transferStock = async (req, res) => {
       await fromInv.save();
     }
 
-    // Increase recipient's stock
+    // Increase recipient's stock in UserInventory (Legacy)
     let toInv = await UserInventory.findOne({ user: finalToUserId, product: finalProductId });
     if (!toInv) {
       toInv = new UserInventory({ user: finalToUserId, product: finalProductId, quantity: 0 });
     }
     toInv.quantity += Number(quantity);
     await toInv.save();
+
+    // SYNC WITH KITCHEN MODEL (Modern)
+    const kitchen = await Kitchen.findOne({
+      $or: [{ admin: finalToUserId }, { billingAdmin: finalToUserId }]
+    });
+
+    if (kitchen) {
+      const existingAssignment = kitchen.assignedProducts.find(
+        ap => ap.product.toString() === finalProductId.toString()
+      );
+
+      if (existingAssignment) {
+        existingAssignment.assigned += Number(quantity);
+      } else {
+        kitchen.assignedProducts.push({
+          product: finalProductId,
+          assigned: Number(quantity),
+          used: 0
+        });
+      }
+      await kitchen.save();
+      console.log(`Kitchen stock updated for ${kitchen.name}: +${quantity} units assigned`);
+    }
 
     // Log the transfer
     await StockTransfer.create({
@@ -412,6 +365,21 @@ export const transferStock = async (req, res) => {
       quantity,
       notes
     });
+
+    // Notify all panels via WebSockets
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin-panel').emit('stock-updated', { timestamp: new Date() });
+      if (kitchen) {
+        const updatedK = await Kitchen.findById(kitchen._id)
+          .populate('assignedProducts.product', 'name unit quantity');
+        io.to(`kitchen-${kitchen._id}`).emit('kitchen-stock-updated', {
+          kitchenId: kitchen._id,
+          inventory: updatedK.assignedProducts,
+          timestamp: new Date()
+        });
+      }
+    }
 
     res.json({ success: true, message: 'Stock transferred successfully' });
   } catch (error) {
@@ -426,53 +394,86 @@ export const getUserInventory = async (req, res) => {
     }
 
     const { role, _id: userId } = req.user;
+    const { view } = req.query;
 
-    // For super_admin, show global inventory
-    if (role === 'super_admin') {
-      const products = await Product.find({})
-        .select('name category unit price quantity status minStock thumbnail')
-        .lean();
+    // For super_admin/admin, allow switching between Warehouse and Total Kitchen Stock
+    if (role === 'super_admin' || role === 'admin') {
+      if (view === 'kitchen') {
+        const kitchens = await Kitchen.find({}).populate({
+          path: 'assignedProducts.product',
+          select: 'name category unit price quantity status minStock thumbnail'
+        });
 
-      const inventory = products.map(p => ({
-        _id: p._id,
-        product: p,
-        quantity: p.quantity,
-        user: userId
-      }));
-      return res.json({ success: true, inventory });
+        // Aggregate stock across all kitchens
+        const aggregateMap = {};
+        kitchens.forEach(k => {
+          k.assignedProducts.forEach(item => {
+            if (item.product) {
+              const pid = item.product._id.toString();
+              if (!aggregateMap[pid]) {
+                aggregateMap[pid] = {
+                  _id: item._id,
+                  product: item.product,
+                  assigned: 0,
+                  used: 0,
+                  user: userId,
+                  isAggregate: true
+                };
+              }
+              aggregateMap[pid].assigned += Number(item.assigned || 0);
+              aggregateMap[pid].used += Number(item.used || 0);
+            }
+          });
+        });
+
+        const inventory = Object.values(aggregateMap).map(item => ({
+          ...item,
+          remaining: item.assigned - item.used
+        }));
+        console.log(`Aggregate Kitchen inventory fetched: ${inventory.length} products total.`);
+        return res.json({ success: true, inventory });
+      } else {
+        // Warehouse View (Default)
+        const products = await Product.find({})
+          .select('name category unit price quantity status minStock thumbnail')
+          .lean();
+
+        const inventory = products.map(p => ({
+          _id: p._id,
+          product: p,
+          quantity: p.quantity,
+          user: userId,
+          isWarehouse: true
+        }));
+        return res.json({ success: true, inventory });
+      }
     }
 
-    // For kitchen or billing admins, fetch from UserInventory of the Kitchen Admin
+    // For kitchen or billing admins, fetch from their assigned Kitchen's inventory
     if (role === 'kitchen_admin' || role === 'billing_admin') {
       const kitchen = await Kitchen.findOne({
         $or: [{ admin: userId }, { billingAdmin: userId }]
+      }).populate({
+        path: 'assignedProducts.product',
+        select: 'name category unit price quantity status minStock thumbnail'
       });
 
-      if (kitchen && kitchen.admin) {
-        // Fetch inventory for the KITCHEN ADMIN (who holds the stock)
-        const populatedInventory = await UserInventory.find({ user: kitchen.admin })
-          .populate({
-            path: 'product',
-            select: 'name category unit price quantity status minStock thumbnail'
-          })
-          .lean()
-          .sort({ updatedAt: -1 });
+      if (kitchen) {
+        // Filter out items where product population failed (e.g., product deleted)
+        const validProducts = (kitchen.assignedProducts || []).filter(item => item.product !== null);
 
-        const validInventory = populatedInventory
-          .filter(item => item.product !== null)
-          .map(item => {
-            return {
-              _id: item._id,
-              product: item.product,
-              quantity: item.quantity,
-              user: kitchen.admin
-            };
-          });
+        const inventory = validProducts.map(item => ({
+          _id: item._id,
+          product: item.product,
+          assigned: item.assigned || 0,
+          used: item.used || 0,
+          remaining: (item.assigned || 0) - (item.used || 0),
+          user: userId,
+          kitchenName: kitchen.name
+        }));
 
-        return res.json({ success: true, inventory: validInventory });
-      } else if (role === 'kitchen_admin') {
-        // Fallback for kitchen_admin without a kitchen (improbable but safe)
-        // Just let it fall through to default UserInventory fetch
+        console.log(`Inventory fetched from Kitchen: ${kitchen.name} for user: ${userId} (${validProducts.length} items)`);
+        return res.json({ success: true, inventory });
       }
     }
 
@@ -601,26 +602,26 @@ export const deleteStockLog = async (req, res) => {
 export const uploadImage = async (req, res) => {
   try {
     const { image, folder = 'products' } = req.body;
-    
+
     if (!image || !image.startsWith('data:image')) {
       return res.status(400).json({ success: false, message: 'Valid base64 image required' });
     }
-    
+
     console.log('Uploading image to Cloudinary folder:', folder);
-    
-    const result = await uploadBase64ToCloudinary(image, folder);
-    
-    res.json({ 
-      success: true, 
+
+    const result = await saveBase64Locally(image, folder);
+
+    res.json({
+      success: true,
       url: result.secure_url,
       public_id: result.public_id
     });
   } catch (error) {
     console.error('Image upload error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to upload image',
-      error: error.message 
+      error: error.message
     });
   }
 };

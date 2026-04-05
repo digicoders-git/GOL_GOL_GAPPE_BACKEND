@@ -5,6 +5,7 @@ import {
   createKitchen,
   updateKitchen,
   assignProduct,
+  updateKitchenStock,
   deleteKitchen
 } from '../controllers/kitchenController.js';
 import auth from '../middleware/auth.js';
@@ -18,6 +19,7 @@ router.get('/:id/inventory', getKitchenInventory);
 router.post('/', createKitchen);
 router.put('/:id', updateKitchen);
 router.post('/assign-product', assignProduct);
+router.put('/:id/update-stock', updateKitchenStock);
 router.delete('/:id', deleteKitchen);
 
 export default router;
