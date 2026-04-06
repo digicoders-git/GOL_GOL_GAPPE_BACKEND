@@ -540,13 +540,42 @@ export const getTransferHistory = async (req, res) => {
     }
 
     const transfers = await StockTransfer.find(query)
-      .populate('fromUser', 'email role')
-      .populate('toUser', 'email role')
       .populate('product', 'name unit')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    console.log(`Fetched ${transfers.length} transfers for role: ${role}`);
-    res.json({ success: true, transfers });
+    // Manually populate fromUser and toUser from both Admin and User collections
+    const populatedTransfers = await Promise.all(
+      transfers.map(async (transfer) => {
+        let fromUserData = null;
+        let toUserData = null;
+
+        // Populate fromUser
+        if (transfer.fromUser) {
+          fromUserData = await Admin.findById(transfer.fromUser).select('email role name').lean();
+          if (!fromUserData) {
+            fromUserData = await User.findById(transfer.fromUser).select('email role name mobile').lean();
+          }
+        }
+
+        // Populate toUser
+        if (transfer.toUser) {
+          toUserData = await Admin.findById(transfer.toUser).select('email role name').lean();
+          if (!toUserData) {
+            toUserData = await User.findById(transfer.toUser).select('email role name mobile').lean();
+          }
+        }
+
+        return {
+          ...transfer,
+          fromUser: fromUserData || { email: 'System', role: 'system', name: 'System' },
+          toUser: toUserData || { email: 'Unknown', role: 'unknown', name: 'Unknown' }
+        };
+      })
+    );
+
+    console.log(`Fetched ${populatedTransfers.length} transfers for role: ${role}`);
+    res.json({ success: true, transfers: populatedTransfers });
   } catch (error) {
     console.error('getTransferHistory error:', error);
     res.status(500).json({ message: error.message });
