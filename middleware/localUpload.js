@@ -70,8 +70,8 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `image-${uniqueSuffix}.${extension}`;
     
-    // Ensure folder exists
-    const folderPath = path.join(uploadsDir, folder);
+    // Ensure folder exists - add 'products' prefix
+    const folderPath = path.join(uploadsDir, 'products', folder);
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
@@ -84,7 +84,7 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     
     console.log('Image saved locally:', fullPath);
     
-    // Return URL - include products folder in path
+    // Return URL - folder already contains 'thumbnails' or 'images'
     const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
     return {
       secure_url: `${serverUrl}/uploads/products/${folder}/${filename}`,
