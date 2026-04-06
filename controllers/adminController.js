@@ -130,12 +130,14 @@ export const getAdminDashboard = async (req, res) => {
             Billing.find({ 
                 ...billQuery, 
                 createdAt: { $gte: todayStart },
-                status: 'Completed' // Only count completed bills for revenue
+                status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed'] }, // Only assigned orders
+                kitchen: { $exists: true, $ne: null } // Must have kitchen assigned
             }).select('totalAmount').lean(),
             Order.find({ 
                 ...billQuery, 
                 createdAt: { $gte: todayStart },
-                status: 'Completed' // Only count completed orders for revenue
+                status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed'] }, // Only assigned orders
+                kitchen: { $exists: true, $ne: null } // Must have kitchen assigned
             }).select('totalAmount').lean()
         ]);
 
@@ -154,7 +156,8 @@ export const getAdminDashboard = async (req, res) => {
             const dateFilter = { 
                 ...billQuery, 
                 createdAt: { $gte: dayStart, $lte: dayEnd },
-                status: 'Completed' // Only count completed
+                status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready', 'Completed'] }, // Only assigned orders
+                kitchen: { $exists: true, $ne: null } // Must have kitchen assigned
             };
             const [dayBills, dayOrders] = await Promise.all([
                 Billing.find(dateFilter).select('totalAmount').lean(),
