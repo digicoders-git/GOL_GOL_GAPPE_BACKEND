@@ -13,6 +13,11 @@ export const createOrder = async (req, res) => {
     const customerId = req.user._id;
     const customerMobile = req.user.mobile;
     
+    console.log('=== CREATE ORDER REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Offer code:', offerCode);
+    console.log('Total amount from frontend:', req.body.totalAmount);
+    
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'No items in order' });
     }
@@ -112,6 +117,13 @@ export const createOrder = async (req, res) => {
     }
 
     const order = await Order.create(orderData);
+
+    console.log('=== ORDER CREATED ===');
+    console.log('Order ID:', order._id);
+    console.log('Order Number:', order.orderNumber);
+    console.log('Total Amount:', order.totalAmount);
+    console.log('Offer:', order.offer);
+    console.log('Items:', order.items);
 
     // Note: We don't add to usedByCustomers here because it was already added
     // when user clicked "Apply Offer" button via applyOffer API
