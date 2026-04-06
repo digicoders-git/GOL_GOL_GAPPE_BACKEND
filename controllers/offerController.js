@@ -103,14 +103,14 @@ export const validateOffer = async (req, res) => {
       }
     }
 
-    // Check if customer already used this offer
+    // Check if customer already used this offer in a COMPLETED order
     if (req.user) {
       const customerId = req.user._id;
       const customerMobile = req.user.mobile;
       const alreadyUsed = offer.usedByCustomers.some(usage => {
         const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
         const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-        return userIdMatch || mobileMatch;
+        return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
       });
 
       if (alreadyUsed) {
@@ -201,18 +201,29 @@ export const applyOffer = async (req, res) => {
     // console.log('Offer type:', offer.offerType);
     // console.log('Current usedByCustomers:', offer.usedByCustomers);
     
-    // Check if customer already used this offer (by userId or mobile)
+    // Check if customer already used this offer in a COMPLETED order
     const alreadyUsed = offer.usedByCustomers.some(usage => {
       const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
       const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
       // console.log('Checking usage - UserID match:', userIdMatch, 'Mobile match:', mobileMatch);
-      return userIdMatch || mobileMatch;
+      return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
     });
     
     // console.log('Already used:', alreadyUsed);
     
     if (alreadyUsed) {
       return res.status(400).json({ message: 'You have already used this offer' });
+    }
+
+    // Check if offer is already applied but order not completed yet
+    const pendingApplication = offer.usedByCustomers.some(usage => {
+      const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
+      const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+      return (userIdMatch || mobileMatch) && !usage.orderCompleted;
+    });
+
+    if (pendingApplication) {
+      return res.status(400).json({ message: 'Offer already applied. Please complete your order or remove the offer first.' });
     }
     
     // For product-specific offers, validate product
@@ -247,15 +258,16 @@ export const applyOffer = async (req, res) => {
 
     const finalAmount = Math.max(0, orderAmount - Math.round(discount));
 
-    // Record customer usage with both userId and mobile
+    // Record customer usage with both userId and mobile (mark as pending until order completes)
     offer.usedByCustomers.push({
       customer: customerId,
       customerMobile: customerMobile,
       product: productId || null,
+      orderCompleted: false,
       usedAt: new Date()
     });
     
-    offer.usedCount += 1;
+    // Don't increment usedCount until order is completed
     await offer.save();
 
     // console.log('Offer applied successfully');
@@ -356,6 +368,52 @@ export const deleteOffer = async (req, res) => {
   }
 };
 
+export const removeAppliedOffer = async (req, res) => {
+  try {
+    const { code } = req.body;
+    const customerId = req.user?._id;
+    const customerMobile = req.user?.mobile;
+    
+    if (!customerId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    if (!code) {
+      return res.status(400).json({ message: 'Offer code is required' });
+    }
+    
+    const offer = await Offer.findOne({ code: code.toUpperCase() });
+    
+    if (!offer) {
+      return res.status(404).json({ message: 'Offer not found' });
+    }
+    
+    // Remove pending application
+    const initialLength = offer.usedByCustomers.length;
+    offer.usedByCustomers = offer.usedByCustomers.filter(usage => {
+      const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
+      const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+      const isPending = !usage.orderCompleted;
+      // Keep entries that don't match OR are already completed
+      return !((userIdMatch || mobileMatch) && isPending);
+    });
+    
+    if (offer.usedByCustomers.length === initialLength) {
+      return res.status(400).json({ message: 'No pending offer application found' });
+    }
+    
+    await offer.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Offer removed successfully'
+    });
+  } catch (error) {
+    console.error('removeAppliedOffer error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const applyOfferToProduct = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
@@ -391,7 +449,7 @@ export const applyOfferToProduct = async (req, res) => {
     const alreadyUsed = offer.usedByCustomers.some(usage => {
       const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
       const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-      return userIdMatch || mobileMatch;
+      return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
     });
     
     if (alreadyUsed) {
@@ -416,10 +474,11 @@ export const applyOfferToProduct = async (req, res) => {
       customer: customerId,
       customerMobile: customerMobile,
       product: productId,
+      orderCompleted: false,
       usedAt: new Date()
     });
     
-    offer.usedCount += 1;
+    // Don't increment usedCount until order is completed
     await offer.save();
     
     res.json({

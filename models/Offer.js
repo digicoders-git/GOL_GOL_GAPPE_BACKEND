@@ -31,6 +31,8 @@ const offerSchema = new mongoose.Schema({
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     customerMobile: { type: String },
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
+    orderCompleted: { type: Boolean, default: false },
     usedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

@@ -40,17 +40,15 @@ export const createOrder = async (req, res) => {
         return res.status(400).json({ message: 'Offer limit reached' });
       }
 
-      // Check if offer was already applied (exists in usedByCustomers)
-      const alreadyApplied = offer.usedByCustomers.some(usage => {
+      // Check if user already used this offer in a COMPLETED order
+      const alreadyUsedInOrder = offer.usedByCustomers.some(usage => {
         const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
         const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-        return userIdMatch || mobileMatch;
+        return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
       });
 
-      // If already applied, it means user clicked "Apply Offer" button
-      // So we should NOT add it again, just use the existing application
-      if (!alreadyApplied) {
-        return res.status(400).json({ message: 'Offer must be applied before placing order' });
+      if (alreadyUsedInOrder) {
+        return res.status(400).json({ message: 'You have already used this offer' });
       }
 
       // Validate product-specific offer
@@ -113,9 +111,35 @@ export const createOrder = async (req, res) => {
 
     const order = await Order.create(orderData);
 
-    // Note: We don't add to usedByCustomers here because it was already added
-    // when user clicked "Apply Offer" button via applyOffer API
-    // console.log('Order created with offer:', offerData ? offerData.code : 'none');
+    // Mark offer as used in a completed order
+    if (offerData) {
+      const offer = await Offer.findById(offerData.offerId);
+      if (offer) {
+        // Find existing usage entry or create new one
+        const existingUsage = offer.usedByCustomers.find(usage => {
+          const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
+          const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+          return userIdMatch || mobileMatch;
+        });
+
+        if (existingUsage) {
+          // Mark as order completed
+          existingUsage.orderCompleted = true;
+          existingUsage.orderId = order._id;
+        } else {
+          // Add new usage entry
+          offer.usedByCustomers.push({
+            customer: customerId,
+            customerMobile: customerMobile,
+            orderId: order._id,
+            orderCompleted: true,
+            usedAt: new Date()
+          });
+          offer.usedCount += 1;
+        }
+        await offer.save();
+      }
+    }
 
     await order.populate('items.product', 'name price unit thumbnail');
     await order.populate('customer', 'name email mobile');
