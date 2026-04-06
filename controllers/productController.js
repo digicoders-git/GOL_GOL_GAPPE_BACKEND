@@ -757,23 +757,56 @@ export const uploadImage = async (req, res) => {
 
 export const getAvailableProducts = async (req, res) => {
   try {
-    const products = await Product.find({
-      inStock: true,
-      quantity: { $gt: 0 }
-    })
+    // Get all kitchens with their assigned products
+    const kitchens = await Kitchen.find({})
       .populate({
-        path: 'activeOffer',
-        match: { 
-          isActive: true, 
-          expiryDate: { $gte: new Date() },
-          $expr: { $lt: ['$usedCount', '$maxUses'] }
-        },
-        select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
+        path: 'assignedProducts.product',
+        select: 'name shortName description category foodType price discountPrice images thumbnail tags unit',
+        populate: {
+          path: 'activeOffer',
+          match: { 
+            isActive: true, 
+            expiryDate: { $gte: new Date() },
+            $expr: { $lt: ['$usedCount', '$maxUses'] }
+          },
+          select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
+        }
       })
-      .select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status')
-      .sort({ category: 1, name: 1 })
-      .lean()
-      .maxTimeMS(3000);
+      .lean();
+
+    // Aggregate products across all kitchens
+    const productMap = {};
+    
+    kitchens.forEach(kitchen => {
+      kitchen.assignedProducts.forEach(item => {
+        if (item.product) {
+          const remaining = (item.assigned || 0) - (item.used || 0);
+          
+          // Only include products with available stock
+          if (remaining > 0) {
+            const productId = item.product._id.toString();
+            
+            if (!productMap[productId]) {
+              productMap[productId] = {
+                ...item.product,
+                quantity: 0,
+                inStock: true,
+                status: 'In Stock'
+              };
+            }
+            
+            // Aggregate quantity across all kitchens
+            productMap[productId].quantity += remaining;
+          }
+        }
+      });
+    });
+
+    const products = Object.values(productMap).sort((a, b) => {
+      if (a.category < b.category) return -1;
+      if (a.category > b.category) return 1;
+      return a.name.localeCompare(b.name);
+    });
 
     res.json({
       success: true,
