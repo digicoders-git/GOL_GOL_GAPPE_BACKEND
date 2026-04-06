@@ -85,7 +85,11 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     console.log('Image saved successfully:', fullPath);
     
     // Return URL (relative to server)
-    const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
+    // In development, use localhost. In production, use the configured SERVER_URL
+    let serverUrl = process.env.SERVER_URL;
+    if (!serverUrl || serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+      serverUrl = `http://localhost:${process.env.PORT || 4000}`;
+    }
     return {
       secure_url: `${serverUrl}/uploads/${folder}/${filename}`,
       public_id: filename
