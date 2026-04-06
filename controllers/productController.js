@@ -764,7 +764,7 @@ export const getAvailableProducts = async (req, res) => {
     const kitchens = await Kitchen.find({})
       .populate({
         path: 'assignedProducts.product',
-        select: 'name shortName description category foodType price discountPrice images thumbnail tags unit',
+        select: 'name shortName description category foodType price discountPrice images thumbnail tags unit minStock',
         populate: {
           path: 'activeOffer',
           match: { 
@@ -793,8 +793,7 @@ export const getAvailableProducts = async (req, res) => {
               productMap[productId] = {
                 ...item.product,
                 quantity: 0,
-                inStock: true,
-                status: 'In Stock'
+                inStock: true
               };
             }
             
@@ -805,7 +804,28 @@ export const getAvailableProducts = async (req, res) => {
       });
     });
 
-    const products = Object.values(productMap).sort((a, b) => {
+    // Calculate proper status based on quantity and minStock
+    const products = Object.values(productMap).map(product => {
+      const quantity = product.quantity || 0;
+      const minStock = product.minStock || 10;
+      
+      let status = 'Out of Stock';
+      let inStock = false;
+      
+      if (quantity > minStock) {
+        status = 'In Stock';
+        inStock = true;
+      } else if (quantity > 0) {
+        status = 'Low Stock';
+        inStock = true;
+      }
+      
+      return {
+        ...product,
+        status,
+        inStock
+      };
+    }).sort((a, b) => {
       if (a.category < b.category) return -1;
       if (a.category > b.category) return 1;
       return a.name.localeCompare(b.name);
