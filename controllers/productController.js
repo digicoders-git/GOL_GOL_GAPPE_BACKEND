@@ -394,6 +394,9 @@ export const transferStock = async (req, res) => {
       }
     }
 
+    // Clear available products cache since kitchen stock changed
+    clearCache('available-products');
+
     // console.log('Stock transferred successfully');
     res.json({ success: true, message: 'Stock transferred successfully' });
   } catch (error) {

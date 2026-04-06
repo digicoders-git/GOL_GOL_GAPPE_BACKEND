@@ -328,6 +328,9 @@ export const assignKitchenToOrder = async (req, res) => {
       // console.log('Socket events emitted for order:', order.orderNumber);
     }
 
+    // Clear available products cache since kitchen stock changed
+    clearCache('available-products');
+
     res.json({ success: true, order });
   } catch (error) {
     console.error('assignKitchenToOrder error:', error);
