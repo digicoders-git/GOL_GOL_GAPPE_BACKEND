@@ -82,7 +82,7 @@ export const createProduct = async (req, res) => {
     // Handle base64 thumbnail upload
     if (productData.thumbnail && productData.thumbnail.startsWith('data:image')) {
       try {
-        const result = await saveBase64Locally(productData.thumbnail, 'products/thumbnails');
+        const result = await saveBase64Locally(productData.thumbnail, 'thumbnails');
         productData.thumbnail = result.secure_url;
       } catch (uploadError) {
         return res.status(500).json({ success: false, message: 'Failed to save thumbnail', error: uploadError.message });
@@ -95,7 +95,7 @@ export const createProduct = async (req, res) => {
       for (const image of productData.images) {
         if (image.startsWith('data:image')) {
           try {
-            const result = await saveBase64Locally(image, 'products/images');
+            const result = await saveBase64Locally(image, 'images');
             imageUploads.push(result.secure_url);
           } catch (uploadError) {
             return res.status(500).json({ success: false, message: 'Failed to save image', error: uploadError.message });
@@ -167,7 +167,7 @@ export const updateProduct = async (req, res) => {
     // Handle base64 thumbnail upload
     if (updateData.thumbnail && updateData.thumbnail.startsWith('data:image')) {
       try {
-        const result = await saveBase64Locally(updateData.thumbnail, 'products/thumbnails');
+        const result = await saveBase64Locally(updateData.thumbnail, 'thumbnails');
         updateData.thumbnail = result.secure_url;
       } catch (uploadError) {
         return res.status(500).json({ success: false, message: 'Failed to save thumbnail', error: uploadError.message });
@@ -180,7 +180,7 @@ export const updateProduct = async (req, res) => {
       for (const image of updateData.images) {
         if (image.startsWith('data:image')) {
           try {
-            const result = await saveBase64Locally(image, 'products/images');
+            const result = await saveBase64Locally(image, 'images');
             imageUploads.push(result.secure_url);
           } catch (uploadError) {
             return res.status(500).json({ success: false, message: 'Failed to save image', error: uploadError.message });
@@ -437,10 +437,28 @@ export const getUserInventory = async (req, res) => {
           });
         });
 
-        const inventory = Object.values(aggregateMap).map(item => ({
-          ...item,
-          remaining: item.assigned - item.used
-        }));
+        const inventory = Object.values(aggregateMap).map(item => {
+          const remaining = item.assigned - item.used;
+          const minStock = item.product.minStock || 10;
+          
+          // Calculate status based on remaining quantity
+          let status = 'Out of Stock';
+          if (remaining > minStock) {
+            status = 'In Stock';
+          } else if (remaining > 0) {
+            status = 'Low Stock';
+          }
+          
+          return {
+            ...item,
+            product: {
+              ...item.product,
+              status // Add calculated status
+            },
+            remaining,
+            status // Add status at inventory level too
+          };
+        });
         console.log(`Aggregate Kitchen inventory fetched: ${inventory.length} products total.`);
         return res.json({ success: true, inventory });
       } else {
@@ -449,13 +467,30 @@ export const getUserInventory = async (req, res) => {
           .select('name category unit price quantity status minStock thumbnail')
           .lean();
 
-        const inventory = products.map(p => ({
-          _id: p._id,
-          product: p,
-          quantity: p.quantity,
-          user: userId,
-          isWarehouse: true
-        }));
+        const inventory = products.map(p => {
+          const quantity = p.quantity || 0;
+          const minStock = p.minStock || 10;
+          
+          // Calculate status based on quantity
+          let status = 'Out of Stock';
+          if (quantity > minStock) {
+            status = 'In Stock';
+          } else if (quantity > 0) {
+            status = 'Low Stock';
+          }
+          
+          return {
+            _id: p._id,
+            product: {
+              ...p,
+              status // Override with calculated status
+            },
+            quantity,
+            status, // Add status at inventory level too
+            user: userId,
+            isWarehouse: true
+          };
+        });
         return res.json({ success: true, inventory });
       }
     }
@@ -473,15 +508,32 @@ export const getUserInventory = async (req, res) => {
         // Filter out items where product population failed (e.g., product deleted)
         const validProducts = (kitchen.assignedProducts || []).filter(item => item.product !== null);
 
-        const inventory = validProducts.map(item => ({
-          _id: item._id,
-          product: item.product,
-          assigned: item.assigned || 0,
-          used: item.used || 0,
-          remaining: (item.assigned || 0) - (item.used || 0),
-          user: userId,
-          kitchenName: kitchen.name
-        }));
+        const inventory = validProducts.map(item => {
+          const remaining = (item.assigned || 0) - (item.used || 0);
+          const minStock = item.product.minStock || 10;
+          
+          // Calculate status based on remaining quantity
+          let status = 'Out of Stock';
+          if (remaining > minStock) {
+            status = 'In Stock';
+          } else if (remaining > 0) {
+            status = 'Low Stock';
+          }
+          
+          return {
+            _id: item._id,
+            product: {
+              ...item.product,
+              status // Add calculated status
+            },
+            assigned: item.assigned || 0,
+            used: item.used || 0,
+            remaining,
+            status, // Add status at inventory level too
+            user: userId,
+            kitchenName: kitchen.name
+          };
+        });
 
         console.log(`Inventory fetched from Kitchen: ${kitchen.name} for user: ${userId} (${validProducts.length} items)`);
         return res.json({ success: true, inventory });
@@ -500,10 +552,25 @@ export const getUserInventory = async (req, res) => {
     const validInventory = populatedInventory
       .filter(item => item.product !== null)
       .map(item => {
+        const quantity = item.quantity || 0;
+        const minStock = item.product.minStock || 10;
+        
+        // Calculate status based on quantity
+        let status = 'Out of Stock';
+        if (quantity > minStock) {
+          status = 'In Stock';
+        } else if (quantity > 0) {
+          status = 'Low Stock';
+        }
+        
         return {
           _id: item._id,
-          product: item.product,
-          quantity: item.quantity,
+          product: {
+            ...item.product,
+            status // Add calculated status
+          },
+          quantity,
+          status, // Add status at inventory level too
           user: userId
         };
       });
@@ -554,12 +621,36 @@ export const getTransferHistory = async (req, res) => {
     const transfers = await StockTransfer.find(query)
       .populate('fromUser', 'email role name')
       .populate('toUser', 'email role name')
-      .populate('product', 'name unit')
+      .populate('product', 'name unit quantity minStock status')
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log(`Fetched ${transfers.length} transfers for role: ${role}`);
-    res.json({ success: true, transfers });
+    // Add calculated status if product exists
+    const transfersWithStatus = transfers.map(transfer => {
+      if (transfer.product) {
+        const quantity = transfer.product.quantity || 0;
+        const minStock = transfer.product.minStock || 10;
+        
+        let status = 'Out of Stock';
+        if (quantity > minStock) {
+          status = 'In Stock';
+        } else if (quantity > 0) {
+          status = 'Low Stock';
+        }
+        
+        return {
+          ...transfer,
+          product: {
+            ...transfer.product,
+            status
+          }
+        };
+      }
+      return transfer;
+    });
+
+    console.log(`Fetched ${transfersWithStatus.length} transfers for role: ${role}`);
+    res.json({ success: true, transfers: transfersWithStatus });
   } catch (error) {
     console.error('getTransferHistory error:', error);
     res.status(500).json({ message: error.message });

@@ -82,16 +82,12 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     // Write file
     fs.writeFileSync(fullPath, imageData, 'base64');
     
-    console.log('Image saved successfully:', fullPath);
+    console.log('Image saved locally:', fullPath);
     
-    // Return URL (relative to server)
-    // In development, use localhost. In production, use the configured SERVER_URL
-    let serverUrl = process.env.SERVER_URL;
-    if (!serverUrl || serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-      serverUrl = `http://localhost:${process.env.PORT || 4000}`;
-    }
+    // Return URL - include products folder in path
+    const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
     return {
-      secure_url: `${serverUrl}/uploads/${folder}/${filename}`,
+      secure_url: `${serverUrl}/uploads/products/${folder}/${filename}`,
       public_id: filename
     };
   } catch (error) {
