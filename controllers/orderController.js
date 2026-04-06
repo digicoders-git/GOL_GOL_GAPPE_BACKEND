@@ -19,7 +19,7 @@ export const createOrder = async (req, res) => {
     
     let offerData = null;
     if (offerCode) {
-      console.log('Validating offer:', offerCode);
+      console.log('Processing offer in order:', offerCode);
       
       if (items.length !== 1) {
         return res.status(400).json({ message: 'Offer can only be applied to 1 item' });
@@ -40,14 +40,17 @@ export const createOrder = async (req, res) => {
         return res.status(400).json({ message: 'Offer limit reached' });
       }
 
-      const alreadyUsed = offer.usedByCustomers.some(usage => {
+      // Check if offer was already applied (exists in usedByCustomers)
+      const alreadyApplied = offer.usedByCustomers.some(usage => {
         const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
         const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
         return userIdMatch || mobileMatch;
       });
 
-      if (alreadyUsed) {
-        return res.status(400).json({ message: 'You have already used this offer' });
+      // If already applied, it means user clicked "Apply Offer" button
+      // So we should NOT add it again, just use the existing application
+      if (!alreadyApplied) {
+        return res.status(400).json({ message: 'Offer must be applied before placing order' });
       }
 
       // Validate product-specific offer
@@ -76,7 +79,7 @@ export const createOrder = async (req, res) => {
         discountAmount: Math.round(discount)
       };
 
-      console.log('Offer validated:', offerCode);
+      console.log('Offer already applied, using in order:', offerCode);
     }
     
     for (const item of items) {
@@ -110,20 +113,9 @@ export const createOrder = async (req, res) => {
 
     const order = await Order.create(orderData);
 
-    if (offerData) {
-      const offer = await Offer.findById(offerData.offerId);
-      if (offer) {
-        offer.usedByCustomers.push({
-          customer: customerId,
-          customerMobile: customerMobile,
-          product: items[0]?.product || null,
-          usedAt: new Date()
-        });
-        offer.usedCount += 1;
-        await offer.save();
-        console.log('Offer marked as used:', offerData.code);
-      }
-    }
+    // Note: We don't add to usedByCustomers here because it was already added
+    // when user clicked "Apply Offer" button via applyOffer API
+    console.log('Order created with offer:', offerData ? offerData.code : 'none');
 
     await order.populate('items.product', 'name price unit thumbnail');
     await order.populate('customer', 'name email mobile');

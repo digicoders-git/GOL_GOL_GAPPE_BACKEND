@@ -105,6 +105,13 @@ const productSchema = new mongoose.Schema({
     type: String,
     enum: ['In Stock', 'Low Stock', 'Out of Stock'],
     default: 'In Stock'
+  },
+
+  // ✅ NEW FIELD - Active Offer on this product
+  activeOffer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Offer',
+    default: null
   }
 }, {
   timestamps: true

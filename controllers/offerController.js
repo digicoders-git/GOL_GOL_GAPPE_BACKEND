@@ -1,4 +1,32 @@
 import Offer from '../models/Offer.js';
+import Product from '../models/Product.js';
+
+export const getOfferById = async (req, res) => {
+  try {
+    const offer = await Offer.findById(req.params.id)
+      .populate('applicableProducts', 'name price thumbnail')
+      .lean();
+    
+    if (!offer) {
+      return res.status(404).json({ success: false, message: 'Offer not found' });
+    }
+    
+    // Check if offer is still valid
+    const isValid = offer.isActive && 
+                    offer.expiryDate >= new Date() && 
+                    offer.usedCount < offer.maxUses;
+    
+    res.json({ 
+      success: true, 
+      offer: {
+        ...offer,
+        isValid
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const getAllOffers = async (req, res) => {
   try {
@@ -261,6 +289,16 @@ export const applyOffer = async (req, res) => {
 export const createOffer = async (req, res) => {
   try {
     const offer = await Offer.create(req.body);
+    
+    // ✅ NEW: If product-specific offer, update products with activeOffer
+    if (offer.offerType === 'product-specific' && offer.applicableProducts && offer.applicableProducts.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: offer.applicableProducts } },
+        { $set: { activeOffer: offer._id } }
+      );
+      console.log('Products updated with offer:', offer.applicableProducts);
+    }
+    
     res.status(201).json({ success: true, offer });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -269,8 +307,30 @@ export const createOffer = async (req, res) => {
 
 export const updateOffer = async (req, res) => {
   try {
+    const oldOffer = await Offer.findById(req.params.id);
     const offer = await Offer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    
+    // ✅ NEW: Update products if applicableProducts changed
+    if (offer.offerType === 'product-specific') {
+      // Remove offer from old products
+      if (oldOffer && oldOffer.applicableProducts) {
+        await Product.updateMany(
+          { _id: { $in: oldOffer.applicableProducts } },
+          { $set: { activeOffer: null } }
+        );
+      }
+      
+      // Add offer to new products
+      if (offer.applicableProducts && offer.applicableProducts.length > 0) {
+        await Product.updateMany(
+          { _id: { $in: offer.applicableProducts } },
+          { $set: { activeOffer: offer._id } }
+        );
+      }
+    }
+    
     res.json({ success: true, offer });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -281,8 +341,112 @@ export const deleteOffer = async (req, res) => {
   try {
     const offer = await Offer.findByIdAndDelete(req.params.id);
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    
+    // ✅ NEW: Remove offer from products
+    if (offer.offerType === 'product-specific' && offer.applicableProducts) {
+      await Product.updateMany(
+        { _id: { $in: offer.applicableProducts } },
+        { $set: { activeOffer: null } }
+      );
+    }
+    
     res.json({ success: true, message: 'Offer deleted' });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const applyOfferToProduct = async (req, res) => {
+  try {
+    const { productId, quantity } = req.body;
+    const customerId = req.user?._id;
+    const customerMobile = req.user?.mobile;
+    
+    if (!customerId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    const product = await Product.findById(productId).populate('activeOffer');
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    if (!product.activeOffer) {
+      return res.status(400).json({ message: 'No active offer on this product' });
+    }
+    
+    const offer = product.activeOffer;
+    
+    if (!offer.isActive) {
+      return res.status(400).json({ message: 'Offer is inactive' });
+    }
+    if (offer.expiryDate < new Date()) {
+      return res.status(400).json({ message: 'Offer expired' });
+    }
+    if (offer.usedCount >= offer.maxUses) {
+      return res.status(400).json({ message: 'Offer limit reached' });
+    }
+    
+    const alreadyUsed = offer.usedByCustomers.some(usage => {
+      const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
+      const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+      return userIdMatch || mobileMatch;
+    });
+    
+    if (alreadyUsed) {
+      return res.status(400).json({ message: 'You have already used this offer' });
+    }
+    
+    const basePrice = product.price * quantity;
+    
+    if (offer.minOrderAmount > 0 && basePrice < offer.minOrderAmount) {
+      return res.status(400).json({ 
+        message: `Minimum order amount is ₹${offer.minOrderAmount}` 
+      });
+    }
+    
+    const discount = offer.discountType === 'percentage'
+      ? (basePrice * offer.discountValue) / 100
+      : offer.discountValue;
+    
+    const finalPrice = Math.max(0, basePrice - Math.round(discount));
+    
+    offer.usedByCustomers.push({
+      customer: customerId,
+      customerMobile: customerMobile,
+      product: productId,
+      usedAt: new Date()
+    });
+    
+    offer.usedCount += 1;
+    await offer.save();
+    
+    res.json({
+      success: true,
+      product: {
+        _id: product._id,
+        name: product.name,
+        basePrice: product.price,
+        quantity: quantity,
+        totalBasePrice: basePrice
+      },
+      offer: {
+        _id: offer._id,
+        code: offer.code,
+        title: offer.title,
+        discountType: offer.discountType,
+        discountValue: offer.discountValue
+      },
+      priceBreakdown: {
+        basePrice: basePrice,
+        discountAmount: Math.round(discount),
+        finalPrice: finalPrice,
+        savings: Math.round(discount)
+      }
+    });
+  } catch (error) {
+    console.error('applyOfferToProduct error:', error);
     res.status(500).json({ message: error.message });
   }
 };

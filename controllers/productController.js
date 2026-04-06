@@ -11,6 +11,15 @@ import { saveBase64Locally } from '../middleware/localUpload.js';
 export const getAllProducts = async (req, res) => {
   try {
     const products = await Product.find()
+      .populate({
+        path: 'activeOffer',
+        match: { 
+          isActive: true, 
+          expiryDate: { $gte: new Date() },
+          $expr: { $lt: ['$usedCount', '$maxUses'] }
+        },
+        select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
+      })
       .sort({ name: 1 })
       .lean()
       .maxTimeMS(5000);
@@ -636,6 +645,15 @@ export const getAvailableProducts = async (req, res) => {
       inStock: true,
       quantity: { $gt: 0 }
     })
+      .populate({
+        path: 'activeOffer',
+        match: { 
+          isActive: true, 
+          expiryDate: { $gte: new Date() },
+          $expr: { $lt: ['$usedCount', '$maxUses'] }
+        },
+        select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
+      })
       .select('name shortName description category foodType price discountPrice images thumbnail tags inStock quantity status')
       .sort({ category: 1, name: 1 })
       .lean()
