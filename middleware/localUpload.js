@@ -70,11 +70,19 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `image-${uniqueSuffix}.${extension}`;
     
+    // Ensure folder exists
+    const folderPath = path.join(uploadsDir, folder);
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
+    
     // Create full path
-    const fullPath = path.join(uploadsDir, folder, filename);
+    const fullPath = path.join(folderPath, filename);
     
     // Write file
     fs.writeFileSync(fullPath, imageData, 'base64');
+    
+    console.log('Image saved successfully:', fullPath);
     
     // Return URL (relative to server)
     const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
@@ -83,6 +91,7 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
       public_id: filename
     };
   } catch (error) {
+    console.error('Save base64 error:', error);
     throw new Error(`Failed to save base64 image: ${error.message}`);
   }
 };
