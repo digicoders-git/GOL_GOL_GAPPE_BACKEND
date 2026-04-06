@@ -14,7 +14,7 @@ export const getAllBills = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    console.log('getAllBills called - User:', req.user?.email, 'Role:', req.user?.role);
+    // console.log('getAllBills called - User:', req.user?.email, 'Role:', req.user?.role);
 
     let query = {};
 
@@ -22,9 +22,9 @@ export const getAllBills = async (req, res) => {
       const kitchen = await Kitchen.findOne({ admin: req.user._id }).select('_id').lean();
       if (kitchen) {
         query.kitchen = kitchen._id;
-        console.log('Kitchen admin - filtering by kitchen:', kitchen._id);
+        // console.log('Kitchen admin - filtering by kitchen:', kitchen._id);
       } else {
-        console.log('Kitchen admin - no kitchen found');
+        // console.log('Kitchen admin - no kitchen found');
         return res.json({ success: true, bills: [], pagination: { page, limit, total: 0, pages: 0 } });
       }
     } else if (req.user.role === 'billing_admin') {
@@ -32,16 +32,16 @@ export const getAllBills = async (req, res) => {
       const userKitchen = await Kitchen.findOne({ billingAdmin: req.user._id }).select('_id').lean();
       if (userKitchen) {
         query.kitchen = userKitchen._id;
-        console.log('Billing admin - filtering by their kitchen:', userKitchen._id);
+        // console.log('Billing admin - filtering by their kitchen:', userKitchen._id);
       } else {
         // If no kitchen assigned, show all bills (for super billing admin)
-        console.log('Billing admin - no specific kitchen, showing all bills');
+        // console.log('Billing admin - no specific kitchen, showing all bills');
       }
     } else if (req.user.role === 'super_admin' || req.user.role === 'admin') {
-      console.log('Super admin - showing all bills');
+      // console.log('Super admin - showing all bills');
     }
 
-    console.log('Query:', JSON.stringify(query));
+    // console.log('Query:', JSON.stringify(query));
 
     const [bills, total] = await Promise.all([
       Billing.find(query)
@@ -55,7 +55,7 @@ export const getAllBills = async (req, res) => {
       Billing.countDocuments(query)
     ]);
 
-    console.log('Bills found:', bills.length, 'Total:', total);
+    // console.log('Bills found:', bills.length, 'Total:', total);
 
     res.json({
       success: true,
@@ -75,9 +75,9 @@ export const getAllBills = async (req, res) => {
 
 export const getUserOrders = async (req, res) => {
   try {
-    console.log('getUserOrders called - User:', req.user);
-    console.log('Searching for phone:', req.user.mobile);
-    console.log('Searching for user ID:', req.user._id);
+    // console.log('getUserOrders called - User:', req.user);
+    // console.log('Searching for phone:', req.user.mobile);
+    // console.log('Searching for user ID:', req.user._id);
     
     // Search in both Billing and Order collections
     const [bills, orders] = await Promise.all([
@@ -95,8 +95,8 @@ export const getUserOrders = async (req, res) => {
         .lean()
     ]);
     
-    console.log('Bills found by phone:', bills.length);
-    console.log('Orders found by user ID:', orders.length);
+    // console.log('Bills found by phone:', bills.length);
+    // console.log('Orders found by user ID:', orders.length);
     
     // Merge both and normalize
     const allBills = [
@@ -112,7 +112,7 @@ export const getUserOrders = async (req, res) => {
       }))
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
-    console.log('Total bills/orders returned:', allBills.length);
+    // console.log('Total bills/orders returned:', allBills.length);
     res.json({ success: true, bills: allBills });
   } catch (error) {
     console.error('getUserOrders error:', error);
@@ -125,7 +125,7 @@ export const createBill = async (req, res) => {
     const { items, kitchenId, customerName, customerMobile, offerCode } = req.body;
     const billNumber = `BILL${Date.now()}`;
 
-    console.log('Creating bill:', billNumber);
+    // console.log('Creating bill:', billNumber);
 
     let offerData = null;
     if (offerCode) {
@@ -200,7 +200,7 @@ export const createBill = async (req, res) => {
     });
 
     if (existingBill) {
-      console.log('Duplicate bill creation attempt blocked');
+      // console.log('Duplicate bill creation attempt blocked');
       return res.status(200).json({ success: true, bill: existingBill, message: 'Existing bill returned' });
     }
 
@@ -211,7 +211,7 @@ export const createBill = async (req, res) => {
       }
     }
 
-    console.log('Creating bill - User:', req.user?.email, 'Role:', req.user?.role, 'Kitchen:', kitchenToAssign);
+    // console.log('Creating bill - User:', req.user?.email, 'Role:', req.user?.role, 'Kitchen:', kitchenToAssign);
 
     const billData = {
       billNumber,
@@ -228,7 +228,7 @@ export const createBill = async (req, res) => {
     }
 
     const bill = await Billing.create(billData);
-    console.log('Bill created:', bill._id);
+    // console.log('Bill created:', bill._id);
 
     if (offerData) {
       const offer = await Offer.findById(offerData.offerId);
@@ -241,7 +241,7 @@ export const createBill = async (req, res) => {
         });
         offer.usedCount += 1;
         await offer.save();
-        console.log('Offer marked as used:', offerData.code);
+        // console.log('Offer marked as used:', offerData.code);
       }
     }
 
@@ -261,14 +261,14 @@ export const createBill = async (req, res) => {
 
           // 1. Deduct from Kitchen Inventory (ONLY IF KITCHEN IS ASSIGNED)
           if (kitchenObj) {
-            console.log('Kitchen Bill - Deducting from Kitchen stock ONLY');
+            // console.log('Kitchen Bill - Deducting from Kitchen stock ONLY');
             const assignment = kitchenObj.assignedProducts.find(
               ap => ap.product.toString() === item.product.toString()
             );
             if (assignment) {
               // Update used count
               assignment.used = (assignment.used || 0) + quantityToDeduct;
-              console.log(`Stock update: ${product.name} - Assigned: ${assignment.assigned}, Used: ${assignment.used}, Remaining: ${assignment.assigned - assignment.used}`);
+              // console.log(`Stock update: ${product.name} - Assigned: ${assignment.assigned}, Used: ${assignment.used}, Remaining: ${assignment.assigned - assignment.used}`);
             }
 
             // Also update UserInventory for kitchen admin
@@ -281,7 +281,7 @@ export const createBill = async (req, res) => {
             }
           } else {
             // 2. Direct Sale (NO KITCHEN) - Deduct from Master Inventory
-            console.log('Direct Sale - Deducting from Master Product stock');
+            // console.log('Direct Sale - Deducting from Master Product stock');
             product.quantity -= quantityToDeduct;
             if (product.quantity > product.minStock) {
               product.status = 'In Stock';
@@ -345,7 +345,7 @@ export const createBill = async (req, res) => {
 
 export const updateBill = async (req, res) => {
   try {
-    console.log('updateBill called - ID:', req.params.id);
+    // console.log('updateBill called - ID:', req.params.id);
 
     // 1. Try updating in Billing collection
     let record = await Billing.findByIdAndUpdate(
@@ -358,7 +358,7 @@ export const updateBill = async (req, res) => {
 
     if (!record) {
       // 2. Try updating in Order collection
-      console.log('Not found in Billing, trying Order collection...');
+      // console.log('Not found in Billing, trying Order collection...');
       record = await Order.findByIdAndUpdate(
         req.params.id,
         req.body,
@@ -369,11 +369,11 @@ export const updateBill = async (req, res) => {
     }
 
     if (!record) {
-      console.log('Record not found in any collection:', req.params.id);
+      // console.log('Record not found in any collection:', req.params.id);
       return res.status(404).json({ message: 'Record not found' });
     }
 
-    console.log('Record updated successfully:', record._id);
+    // console.log('Record updated successfully:', record._id);
     res.json({ success: true, bill: record });
   } catch (error) {
     console.error('updateBill error:', error);
@@ -421,26 +421,26 @@ export const getBillById = async (req, res) => {
 
 export const getKitchenOrders = async (req, res) => {
   try {
-    console.log('getKitchenOrders called by:', req.user.email, 'Role:', req.user.role);
+    // console.log('getKitchenOrders called by:', req.user.email, 'Role:', req.user.role);
     let kitchen;
 
     if (req.user.role === 'kitchen_admin') {
       kitchen = await Kitchen.findOne({ admin: req.user._id });
-      console.log('Kitchen found for kitchen_admin:', kitchen);
+      // console.log('Kitchen found for kitchen_admin:', kitchen);
     } else if (req.user.role === 'billing_admin') {
       kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
       if (!kitchen && req.user.kitchen) {
         kitchen = await Kitchen.findById(req.user.kitchen);
       }
-      console.log('Kitchen found for role', req.user.role, ':', kitchen?._id || 'None');
+      // console.log('Kitchen found for role', req.user.role, ':', kitchen?._id || 'None');
     }
 
     if (!kitchen) {
-      console.log('No kitchen found, returning empty array');
+      // console.log('No kitchen found, returning empty array');
       return res.json({ success: true, bills: [], message: 'No kitchen assigned' });
     }
 
-    console.log('Searching bills and orders for kitchen:', kitchen._id);
+    // console.log('Searching bills and orders for kitchen:', kitchen._id);
 
     const [bills, onlineOrders] = await Promise.all([
       Billing.find({ kitchen: kitchen._id })
@@ -461,22 +461,30 @@ export const getKitchenOrders = async (req, res) => {
       ...onlineOrders.map(o => ({ ...o, type: 'ORDER' }))
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    console.log(`Kitchen data found: Bills(${bills.length}), Orders(${onlineOrders.length})`);
+    // console.log(`Kitchen data found: Bills(${bills.length}), Orders(${onlineOrders.length})`);
     res.json({ success: true, bills: merged });
   } catch (error) {
     console.error('getKitchenOrders error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const updateBillStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    console.log('Updating bill status:', req.params.id, 'to:', status);
+    const { status, paymentMethod } = req.body;
+    // console.log('Updating bill status:', req.params.id, 'to:', status);
+
+    const updateData = { status };
+    
+    // If payment method is provided and status is Assigned_to_Kitchen, mark payment as Completed
+    if (paymentMethod && status === 'Assigned_to_Kitchen') {
+      updateData.paymentMethod = paymentMethod;
+      updateData.paymentStatus = 'Completed';
+    }
 
     let bill = await Billing.findByIdAndUpdate(
       req.params.id,
-      { status },
+      updateData,
       { new: true }
     )
       .populate('kitchen', 'name location')
@@ -486,7 +494,7 @@ export const updateBillStatus = async (req, res) => {
       // Try Order collection
       bill = await Order.findByIdAndUpdate(
         req.params.id,
-        { status },
+        updateData,
         { new: true }
       )
         .populate('kitchen', 'name location')
@@ -499,7 +507,7 @@ export const updateBillStatus = async (req, res) => {
 
     // NEW: Handle Stock Deduction when assigning to kitchen
     if (status === 'Assigned_to_Kitchen' && bill.kitchen && bill.items) {
-      console.log('Order Assigned to Kitchen - Deducting Stock...');
+      // console.log('Order Assigned to Kitchen - Deducting Stock...');
       const kitchen = await Kitchen.findById(bill.kitchen);
 
       if (kitchen) {
@@ -514,7 +522,7 @@ export const updateBillStatus = async (req, res) => {
               const qtyToDeduct = Number(item.quantity || 0);
               const oldUsed = assignment.used || 0;
               assignment.used = oldUsed + qtyToDeduct;
-              console.log(`Stock update on assign: ${assignment.assigned} assigned, ${assignment.used} used, ${assignment.assigned - assignment.used} remaining`);
+              // console.log(`Stock update on assign: ${assignment.assigned} assigned, ${assignment.used} used, ${assignment.assigned - assignment.used} remaining`);
 
               // 2. Create Stock Log for the consumption
               await StockLog.create({
@@ -531,7 +539,7 @@ export const updateBillStatus = async (req, res) => {
         }
         kitchen.markModified('assignedProducts');
         await kitchen.save();
-        console.log('Kitchen stock updated for order:', bill._id);
+        // console.log('Kitchen stock updated for order:', bill._id);
       }
     }
 
@@ -546,7 +554,7 @@ export const updateBillStatus = async (req, res) => {
     res.json({ success: true, bill });
   } catch (error) {
     console.error('updateBillStatus error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -565,7 +573,7 @@ export const deleteBill = async (req, res) => {
     res.json({ success: true, message: 'Bill deleted successfully' });
   } catch (error) {
     console.error('deleteBill error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -603,7 +611,7 @@ export const getPrintBill = async (req, res) => {
     res.json({ success: true, bill: { ...bill.toObject(), type: 'BILL' } });
   } catch (error) {
     console.error('getPrintBill error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -628,6 +636,7 @@ export const testKitchenAssignment = async (req, res) => {
 
     res.json({ success: true, result });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('testKitchenAssignment error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

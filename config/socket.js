@@ -11,20 +11,20 @@ export const initIO = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log("Client connected:", socket.id);
+    // console.log("Client connected:", socket.id);
     
     socket.on("join-kitchen", (kitchenId) => {
       socket.join(`kitchen-${kitchenId}`);
-      console.log(`Socket ${socket.id} joined kitchen-${kitchenId}`);
+      // console.log(`Socket ${socket.id} joined kitchen-${kitchenId}`);
     });
     
     socket.on("join-billing", (billingAdminId) => {
       socket.join(`billing-${billingAdminId}`);
-      console.log(`Socket ${socket.id} joined billing-${billingAdminId}`);
+      // console.log(`Socket ${socket.id} joined billing-${billingAdminId}`);
     });
     
     socket.on("disconnect", () => {
-      console.log("Client disconnected:", socket.id);
+      // console.log("Client disconnected:", socket.id);
     });
   });
 

@@ -52,8 +52,8 @@ export const getActiveOffers = async (req, res) => {
 
 export const validateOffer = async (req, res) => {
   try {
-    console.log('=== VALIDATE OFFER ===');
-    console.log('Request body:', req.body);
+    // console.log('=== VALIDATE OFFER ===');
+    // console.log('Request body:', req.body);
     
     const { code, orderAmount, productId } = req.body;
     
@@ -62,20 +62,20 @@ export const validateOffer = async (req, res) => {
     }
     
     let offer = await Offer.findOne({ code: code.toUpperCase() }).populate('applicableProducts');
-    console.log('Offer found:', offer ? 'Yes' : 'No');
+    // console.log('Offer found:', offer ? 'Yes' : 'No');
 
     if (!offer) return res.status(404).json({ message: 'Invalid offer code' });
     
     // Migration: Set default offerType if not present
     if (!offer.offerType) {
-      console.log('Setting offerType for offer:', offer._id);
+      // console.log('Setting offerType for offer:', offer._id);
       offer.offerType = offer.applicableProducts && offer.applicableProducts.length > 0 ? 'product-specific' : 'global';
       await offer.save();
     }
     
-    console.log('Offer type:', offer.offerType);
-    console.log('Minimum order amount:', offer.minOrderAmount);
-    console.log('Current order amount:', orderAmount);
+    // console.log('Offer type:', offer.offerType);
+    // console.log('Minimum order amount:', offer.minOrderAmount);
+    // console.log('Current order amount:', orderAmount);
     
     if (!offer.isActive) return res.status(400).json({ message: 'Offer is inactive' });
     if (offer.expiryDate < new Date()) return res.status(400).json({ message: 'Offer expired' });
@@ -83,13 +83,13 @@ export const validateOffer = async (req, res) => {
     
     // Check minimum order amount BEFORE applying discount
     if (offer.minOrderAmount > 0 && orderAmount < offer.minOrderAmount) {
-      console.log('❌ VALIDATION FAILED: Order amount too low');
+      // console.log('❌ VALIDATION FAILED: Order amount too low');
       return res.status(400).json({ 
         success: false,
         message: `Your cart total is ₹${orderAmount}. You need to order at least ₹${offer.minOrderAmount} to use this offer.` 
       });
     }
-    console.log('✅ Minimum order check passed');
+    // console.log('✅ Minimum order check passed');
 
     // For product-specific offers, validate product
     if (offer.offerType === 'product-specific') {
@@ -138,7 +138,7 @@ export const validateOffer = async (req, res) => {
 
     const finalAmount = Math.max(0, orderAmount - Math.round(discount));
 
-    console.log('Validation successful');
+    // console.log('Validation successful');
     res.json({ 
       success: true, 
       offer: {
@@ -168,9 +168,9 @@ export const validateOffer = async (req, res) => {
 
 export const applyOffer = async (req, res) => {
   try {
-    console.log('=== APPLY OFFER ===');
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
+    // console.log('=== APPLY OFFER ===');
+    // console.log('Request body:', req.body);
+    // console.log('User:', req.user);
     
     const { code, orderAmount, productId } = req.body;
     const customerId = req.user?._id;
@@ -184,32 +184,32 @@ export const applyOffer = async (req, res) => {
       return res.status(400).json({ message: 'Offer code is required' });
     }
     
-    console.log('Applying offer for user:', customerId, 'Mobile:', customerMobile);
+    // console.log('Applying offer for user:', customerId, 'Mobile:', customerMobile);
     
     let offer = await Offer.findOne({ code: code.toUpperCase() }).populate('applicableProducts');
-    console.log('Offer found:', offer ? 'Yes' : 'No');
+    // console.log('Offer found:', offer ? 'Yes' : 'No');
 
     if (!offer) return res.status(404).json({ message: 'Invalid offer code' });
     
     // Migration: Set default offerType if not present
     if (!offer.offerType) {
-      console.log('Setting offerType for offer:', offer._id);
+      // console.log('Setting offerType for offer:', offer._id);
       offer.offerType = offer.applicableProducts && offer.applicableProducts.length > 0 ? 'product-specific' : 'global';
       await offer.save();
     }
     
-    console.log('Offer type:', offer.offerType);
-    console.log('Current usedByCustomers:', offer.usedByCustomers);
+    // console.log('Offer type:', offer.offerType);
+    // console.log('Current usedByCustomers:', offer.usedByCustomers);
     
     // Check if customer already used this offer (by userId or mobile)
     const alreadyUsed = offer.usedByCustomers.some(usage => {
       const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
       const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-      console.log('Checking usage - UserID match:', userIdMatch, 'Mobile match:', mobileMatch);
+      // console.log('Checking usage - UserID match:', userIdMatch, 'Mobile match:', mobileMatch);
       return userIdMatch || mobileMatch;
     });
     
-    console.log('Already used:', alreadyUsed);
+    // console.log('Already used:', alreadyUsed);
     
     if (alreadyUsed) {
       return res.status(400).json({ message: 'You have already used this offer' });
@@ -258,7 +258,7 @@ export const applyOffer = async (req, res) => {
     offer.usedCount += 1;
     await offer.save();
 
-    console.log('Offer applied successfully');
+    // console.log('Offer applied successfully');
     res.json({ 
       success: true, 
       message: 'Offer applied successfully',
@@ -296,7 +296,7 @@ export const createOffer = async (req, res) => {
         { _id: { $in: offer.applicableProducts } },
         { $set: { activeOffer: offer._id } }
       );
-      console.log('Products updated with offer:', offer.applicableProducts);
+      // console.log('Products updated with offer:', offer.applicableProducts);
     }
     
     res.status(201).json({ success: true, offer });

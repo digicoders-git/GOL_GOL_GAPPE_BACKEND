@@ -28,7 +28,7 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log(`[SMS-SERVICE] OTP for ${mobile} is ${otp}`);
+    // console.log(`[SMS-SERVICE] OTP for ${mobile} is ${otp}`);
 
     res.json({
       success: true,
@@ -218,17 +218,17 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    console.log(`Starting admin registration for: ${email} with role: ${role}`);
+    // console.log(`Starting admin registration for: ${email} with role: ${role}`);
 
     // Check if admin already exists
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
-      console.log(`Registration failed: Admin ${email} already exists`);
+      // console.log(`Registration failed: Admin ${email} already exists`);
       return res.status(400).json({ message: 'Admin with this email already exists' });
     }
 
     const admin = await Admin.create({ email, password, role });
-    console.log(`Admin registration successful: ${admin._id}`);
+    // console.log(`Admin registration successful: ${admin._id}`);
 
     res.status(201).json({
       success: true,

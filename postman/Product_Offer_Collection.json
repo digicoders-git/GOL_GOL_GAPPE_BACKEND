@@ -1,0 +1,559 @@
+{
+	"info": {
+		"name": "GolGolGappe - Product & Offer Management",
+		"description": "Complete collection for Product pe Offer create se lekar apply tak",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{authToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:4000",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "productId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "offerId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "offerCode",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Products",
+			"item": [
+				{
+					"name": "Get All Products",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/products",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/products/{{productId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products", "{{productId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Product",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('productId', response.product._id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Gol Gappe Special\",\n  \"shortName\": \"GG Special\",\n  \"description\": \"Crispy gol gappe with tangy pani\",\n  \"category\": \"Street Food\",\n  \"foodType\": \"veg\",\n  \"price\": 50,\n  \"discountPrice\": 40,\n  \"quantity\": 100,\n  \"unit\": \"plate\",\n  \"minStock\": 10,\n  \"tags\": [\"Bestseller\", \"Spicy\"],\n  \"inStock\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/products",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"price\": 60,\n  \"discountPrice\": 50,\n  \"quantity\": 150\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/products/{{productId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products", "{{productId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Available Products (Public)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/products/available",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products", "available"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Offers",
+			"item": [
+				{
+					"name": "Get All Offers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/offers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Offers",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/active",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "active"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Offer By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/{{offerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "{{offerId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Global Offer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('offerId', response.offer._id);",
+									"    pm.collectionVariables.set('offerCode', response.offer.code);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Diwali Dhamaka\",\n  \"description\": \"Get 20% off on all orders\",\n  \"code\": \"DIWL20\",\n  \"offerType\": \"global\",\n  \"discountType\": \"percentage\",\n  \"discountValue\": 20,\n  \"maxUses\": 100,\n  \"minOrderAmount\": 100,\n  \"expiryDate\": \"2025-12-31\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Product-Specific Offer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('offerId', response.offer._id);",
+									"    pm.collectionVariables.set('offerCode', response.offer.code);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Gol Gappe Special Offer\",\n  \"description\": \"Flat ₹10 off on Gol Gappe\",\n  \"code\": \"GOLG10\",\n  \"offerType\": \"product-specific\",\n  \"discountType\": \"fixed\",\n  \"discountValue\": 10,\n  \"applicableProducts\": [\"{{productId}}\"],\n  \"maxUses\": 50,\n  \"minOrderAmount\": 40,\n  \"expiryDate\": \"2025-12-31\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Offer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"discountValue\": 25,\n  \"maxUses\": 150,\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/{{offerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "{{offerId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Offer",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/{{offerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "{{offerId}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Offer Validation & Apply",
+			"item": [
+				{
+					"name": "Validate Offer (Global)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 200\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "validate"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Offer (Product-Specific)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 50,\n  \"productId\": \"{{productId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "validate"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Apply Offer (Global)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 200\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/apply",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "apply"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Apply Offer (Product-Specific)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 50,\n  \"productId\": \"{{productId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/apply",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "apply"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Apply Offer to Product (Direct)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/apply-product",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "apply-product"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Complete Flow Example",
+			"item": [
+				{
+					"name": "Step 1: Create Product",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('productId', response.product._id);",
+									"    console.log('Product Created:', response.product._id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Pani Puri Combo\",\n  \"shortName\": \"PP Combo\",\n  \"description\": \"6 crispy puris with spicy pani\",\n  \"category\": \"Street Food\",\n  \"foodType\": \"veg\",\n  \"price\": 60,\n  \"quantity\": 50,\n  \"unit\": \"plate\",\n  \"minStock\": 5,\n  \"tags\": [\"Popular\", \"Spicy\"],\n  \"inStock\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/products",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 2: Create Offer for Product",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('offerId', response.offer._id);",
+									"    pm.collectionVariables.set('offerCode', response.offer.code);",
+									"    console.log('Offer Created:', response.offer.code);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Pani Puri Special\",\n  \"description\": \"Get 15% off on Pani Puri Combo\",\n  \"code\": \"PANI15\",\n  \"offerType\": \"product-specific\",\n  \"discountType\": \"percentage\",\n  \"discountValue\": 15,\n  \"applicableProducts\": [\"{{productId}}\"],\n  \"maxUses\": 30,\n  \"minOrderAmount\": 50,\n  \"expiryDate\": \"2025-12-31\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 3: Get Product with Offer",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/products/{{productId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products", "{{productId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 4: Validate Offer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 60,\n  \"productId\": \"{{productId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "validate"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 5: Apply Offer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{offerCode}}\",\n  \"orderAmount\": 60,\n  \"productId\": \"{{productId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/offers/apply",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "offers", "apply"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

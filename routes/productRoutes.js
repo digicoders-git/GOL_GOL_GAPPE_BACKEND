@@ -21,12 +21,12 @@ import upload from '../middleware/upload.js';
 const router = express.Router();
 
 // Debug middleware
-router.use((req, res, next) => {
-  console.log(`=== PRODUCT ROUTE: ${req.method} ${req.path} ===`);
-  console.log('Headers:', req.headers);
-  console.log('Body:', req.body);
-  next();
-});
+// router.use((req, res, next) => {
+//   console.log(`=== PRODUCT ROUTE: ${req.method} ${req.path} ===`);
+//   console.log('Headers:', req.headers);
+//   console.log('Body:', req.body);
+//   next();
+// });
 
 // Public route with cache
 router.get('/available', cacheMiddleware('available-products', 15000), getAvailableProducts);

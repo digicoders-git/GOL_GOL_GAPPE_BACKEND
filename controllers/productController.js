@@ -72,10 +72,10 @@ export const getProductById = async (req, res) => {
 };
 export const createProduct = async (req, res) => {
   try {
-    console.log('=== CREATE PRODUCT REQUEST ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('Request files:', req.files);
-    console.log('User:', req.user?._id, req.user?.role);
+    // console.log('=== CREATE PRODUCT REQUEST ===');
+    // console.log('Request body:', JSON.stringify(req.body, null, 2));
+    // console.log('Request files:', req.files);
+    // console.log('User:', req.user?._id, req.user?.role);
 
     let productData = { ...req.body };
 
@@ -107,17 +107,17 @@ export const createProduct = async (req, res) => {
       productData.images = imageUploads;
     }
 
-    console.log('Final product data before saving:', JSON.stringify(productData, null, 2));
+    // console.log('Final product data before saving:', JSON.stringify(productData, null, 2));
 
     const product = await Product.create(productData);
-    console.log('Product created successfully:', product._id);
+    // console.log('Product created successfully:', product._id);
 
     // Clear cache after creating product
     try {
       const { clearCache } = await import('../middleware/cache.js');
       clearCache('products');
     } catch (cacheError) {
-      console.log('Cache clear failed, but continuing:', cacheError.message);
+      // console.log('Cache clear failed, but continuing:', cacheError.message);
     }
 
     res.status(201).json({ success: true, product });
@@ -159,8 +159,8 @@ export const createProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    console.log('Updating product with data:', req.body);
-    console.log('Files received:', req.files);
+    // console.log('Updating product with data:', req.body);
+    // console.log('Files received:', req.files);
 
     let updateData = { ...req.body };
 
@@ -192,7 +192,7 @@ export const updateProduct = async (req, res) => {
       updateData.images = imageUploads;
     }
 
-    console.log('Final update data before saving:', updateData);
+    // console.log('Final update data before saving:', updateData);
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -208,7 +208,7 @@ export const updateProduct = async (req, res) => {
       const { clearCache } = await import('../middleware/cache.js');
       clearCache('products');
     } catch (cacheError) {
-      console.log('Cache clear failed, but continuing:', cacheError.message);
+      // console.log('Cache clear failed, but continuing:', cacheError.message);
     }
 
     res.json({ success: true, product });
@@ -229,6 +229,7 @@ export const deleteProduct = async (req, res) => {
     }
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
+    console.error('deleteProduct error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -288,6 +289,7 @@ export const addQuantity = async (req, res) => {
 
     res.json({ success: true, product });
   } catch (error) {
+    console.error('addQuantity error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -363,7 +365,7 @@ export const transferStock = async (req, res) => {
         });
       }
       await kitchen.save();
-      console.log(`Kitchen stock updated for ${kitchen.name}: +${quantity} units assigned`);
+      // console.log(`Kitchen stock updated for ${kitchen.name}: +${quantity} units assigned`);
     }
 
     // Log the transfer
@@ -392,8 +394,10 @@ export const transferStock = async (req, res) => {
       }
     }
 
+    // console.log('Stock transferred successfully');
     res.json({ success: true, message: 'Stock transferred successfully' });
   } catch (error) {
+    console.error('transferStock error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -459,7 +463,7 @@ export const getUserInventory = async (req, res) => {
             status // Add status at inventory level too
           };
         });
-        console.log(`Aggregate Kitchen inventory fetched: ${inventory.length} products total.`);
+        // console.log(`Aggregate Kitchen inventory fetched: ${inventory.length} products total.`);
         return res.json({ success: true, inventory });
       } else {
         // Warehouse View (Default)
@@ -505,8 +509,20 @@ export const getUserInventory = async (req, res) => {
       });
 
       if (kitchen) {
+        // console.log('Kitchen found:', kitchen.name);
+        // console.log('Assigned products:', JSON.stringify(kitchen.assignedProducts, null, 2));
+        
         // Filter out items where product population failed (e.g., product deleted)
-        const validProducts = (kitchen.assignedProducts || []).filter(item => item.product !== null);
+        const validProducts = (kitchen.assignedProducts || []).filter(item => {
+          if (!item.product) {
+            // console.log('Product is null for item:', item._id);
+            return false;
+          }
+          if (!item.product.name) {
+            // console.log('Product name is missing for product:', item.product._id);
+          }
+          return true;
+        });
 
         const inventory = validProducts.map(item => {
           const remaining = (item.assigned || 0) - (item.used || 0);
@@ -523,20 +539,29 @@ export const getUserInventory = async (req, res) => {
           return {
             _id: item._id,
             product: {
-              ...item.product,
-              status // Add calculated status
+              _id: item.product._id,
+              name: item.product.name || 'Unknown Product',
+              category: item.product.category || 'General',
+              unit: item.product.unit || 'Units',
+              price: item.product.price || 0,
+              quantity: item.product.quantity || 0,
+              minStock: item.product.minStock || 10,
+              thumbnail: item.product.thumbnail || null,
+              status
             },
             assigned: item.assigned || 0,
             used: item.used || 0,
             remaining,
-            status, // Add status at inventory level too
+            status,
             user: userId,
             kitchenName: kitchen.name
           };
         });
 
-        console.log(`Inventory fetched from Kitchen: ${kitchen.name} for user: ${userId} (${validProducts.length} items)`);
+        // console.log(`Inventory fetched from Kitchen: ${kitchen.name} for user: ${userId} (${validProducts.length} items)`);
         return res.json({ success: true, inventory });
+      } else {
+        // console.log('No kitchen found for user:', userId);
       }
     }
 
@@ -649,17 +674,17 @@ export const getTransferHistory = async (req, res) => {
       return transfer;
     });
 
-    console.log(`Fetched ${transfersWithStatus.length} transfers for role: ${role}`);
+    // console.log(`Fetched ${transfersWithStatus.length} transfers for role: ${role}`);
     res.json({ success: true, transfers: transfersWithStatus });
   } catch (error) {
     console.error('getTransferHistory error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const getStockLogs = async (req, res) => {
   try {
-    console.log('getStockLogs called by user:', req.user?._id, 'role:', req.user?.role);
+    // console.log('getStockLogs called by user:', req.user?._id, 'role:', req.user?.role);
 
     const logs = await StockLog.find()
       .populate({
@@ -681,7 +706,7 @@ export const getStockLogs = async (req, res) => {
       user: log.user || { username: 'System', email: 'system@auto', role: 'system' }
     }));
 
-    console.log(`Returning ${validLogs.length} stock logs`);
+    // console.log(`Returning ${validLogs.length} stock logs`);
     res.json({ success: true, logs: validLogs });
   } catch (error) {
     console.error('getStockLogs error:', error);
@@ -711,7 +736,7 @@ export const uploadImage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid base64 image required' });
     }
 
-    console.log('Uploading image to Cloudinary folder:', folder);
+    // console.log('Uploading image to Cloudinary folder:', folder);
 
     const result = await saveBase64Locally(image, folder);
 

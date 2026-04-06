@@ -16,7 +16,7 @@ const connectDB = async () => {
             await mongoose.connection.db.collection('products').createIndex({ category: 1 });
             await mongoose.connection.db.collection('products').createIndex({ inStock: 1, quantity: 1 });
         } catch (e) {
-            console.log('Indexes already exist or failed to create');
+            // console.log('Indexes already exist or failed to create');
         }
 
     } catch (error) {

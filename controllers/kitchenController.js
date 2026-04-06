@@ -38,7 +38,7 @@ export const getAllKitchens = async (req, res) => {
       );
 
       if (needsMigration) {
-        console.log(`Migrating kitchen: ${k.name}`);
+        // console.log(`Migrating kitchen: ${k.name}`);
         k.assignedProducts = k.assignedProducts.map(ap => ({
           product: ap.product,
           assigned: ap.quantity || ap.assigned || 0,
@@ -50,7 +50,7 @@ export const getAllKitchens = async (req, res) => {
 
       // AUTO-HEALING: If assignedProducts is empty but admin has stock, sync it
       if (k.admin && (k.assignedProducts.length === 0)) {
-        console.log(`Auto-healing stock for kitchen: ${k.name}`);
+        // console.log(`Auto-healing stock for kitchen: ${k.name}`);
         const userStock = await UserInventory.find({ user: k.admin._id });
         
         if (userStock.length > 0) {
@@ -65,10 +65,28 @@ export const getAllKitchens = async (req, res) => {
         }
       }
 
+      // Count assigned orders for this kitchen
+      const assignedOrdersCount = await Order.countDocuments({
+        kitchen: k._id,
+        status: { $in: ['Assigned_to_Kitchen', 'Processing', 'Ready'] }
+      });
+
+      // Count completed orders for this kitchen
+      const completedOrdersCount = await Order.countDocuments({
+        kitchen: k._id,
+        status: { $in: ['Completed', 'Delivered'] }
+      });
+
+      // Calculate total assigned stock units
+      const totalAssignedStock = k.assignedProducts.reduce((sum, ap) => sum + (ap.assigned || 0), 0);
+
       return {
         ...kitchenObj,
         id: k._id,
-        _id: k._id
+        _id: k._id,
+        assignedOrdersCount,
+        completedOrdersCount,
+        totalAssignedStock
       };
     }));
 

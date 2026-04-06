@@ -43,6 +43,11 @@ const billingSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: false
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['Pending', 'Paid', 'Completed', 'Failed'],
+    default: 'Pending'
   }
 }, {
   timestamps: true

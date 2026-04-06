@@ -13,18 +13,13 @@ export const createOrder = async (req, res) => {
     const customerId = req.user._id;
     const customerMobile = req.user.mobile;
     
-    console.log('=== CREATE ORDER REQUEST ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('Offer code:', offerCode);
-    console.log('Total amount from frontend:', req.body.totalAmount);
-    
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'No items in order' });
     }
     
     let offerData = null;
     if (offerCode) {
-      console.log('Processing offer in order:', offerCode);
+      // console.log('Processing offer in order:', offerCode);
       
       if (items.length !== 1) {
         return res.status(400).json({ message: 'Offer can only be applied to 1 item' });
@@ -84,7 +79,7 @@ export const createOrder = async (req, res) => {
         discountAmount: Math.round(discount)
       };
 
-      console.log('Offer already applied, using in order:', offerCode);
+      // console.log('Offer already applied, using in order:', offerCode);
     }
     
     for (const item of items) {
@@ -118,16 +113,9 @@ export const createOrder = async (req, res) => {
 
     const order = await Order.create(orderData);
 
-    console.log('=== ORDER CREATED ===');
-    console.log('Order ID:', order._id);
-    console.log('Order Number:', order.orderNumber);
-    console.log('Total Amount:', order.totalAmount);
-    console.log('Offer:', order.offer);
-    console.log('Items:', order.items);
-
     // Note: We don't add to usedByCustomers here because it was already added
     // when user clicked "Apply Offer" button via applyOffer API
-    console.log('Order created with offer:', offerData ? offerData.code : 'none');
+    // console.log('Order created with offer:', offerData ? offerData.code : 'none');
 
     await order.populate('items.product', 'name price unit thumbnail');
     await order.populate('customer', 'name email mobile');
@@ -146,10 +134,10 @@ export const createOrder = async (req, res) => {
         products: updatedProducts
       });
 
-      console.log('Socket events emitted for order:', order.orderNumber);
+      // console.log('Socket events emitted for order:', order.orderNumber);
     }
 
-    console.log('Order created successfully:', order._id, 'for customer:', customerId);
+    // console.log('Order created successfully:', order._id, 'for customer:', customerId);
     res.status(201).json({ success: true, order });
   } catch (error) {
     console.error('createOrder error:', error);
@@ -164,20 +152,20 @@ export const getMyOrders = async (req, res) => {
       .populate('kitchen', 'name location')
       .sort({ createdAt: -1 });
 
-    console.log('getMyOrders - User:', req.user._id, 'Orders found:', orders.length);
+    // console.log('getMyOrders - User:', req.user._id, 'Orders found:', orders.length);
     res.json({ success: true, orders });
   } catch (error) {
     console.error('getMyOrders error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const getAllOrders = async (req, res) => {
   try {
-    console.log('User role:', req.user.role, 'User ID:', req.user._id);
+    // console.log('User role:', req.user.role, 'User ID:', req.user._id);
     
     const totalOrders = await Order.countDocuments({});
-    console.log('Total orders in database:', totalOrders);
+    // console.log('Total orders in database:', totalOrders);
     
     let query = {};
 
@@ -187,7 +175,7 @@ export const getAllOrders = async (req, res) => {
       query = { customer: req.user._id };
     }
 
-    console.log('Query:', JSON.stringify(query));
+    // console.log('Query:', JSON.stringify(query));
 
     const orders = await Order.find(query)
       .populate('items.product', 'name price unit')
@@ -195,22 +183,33 @@ export const getAllOrders = async (req, res) => {
       .populate('kitchen', 'name location')
       .sort({ createdAt: -1 });
 
-    console.log('Orders found:', orders.length);
+    // console.log('Orders found:', orders.length);
 
     res.json({ success: true, orders, totalInDB: totalOrders });
   } catch (error) {
     console.error('getAllOrders error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const assignKitchenToOrder = async (req, res) => {
   try {
-    const { kitchenId } = req.body;
+    const { kitchenId, paymentMethod } = req.body;
+
+    const updateData = { 
+      kitchen: kitchenId, 
+      status: 'Assigned_to_Kitchen'
+    };
+    
+    // If payment method is provided, update payment status to Completed
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+      updateData.paymentStatus = 'Completed';
+    }
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { kitchen: kitchenId, status: 'Assigned_to_Kitchen' },
+      updateData,
       { new: true }
     )
       .populate('items.product', 'name price unit')
@@ -221,26 +220,26 @@ export const assignKitchenToOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    console.log('=== ASSIGNING ORDER TO KITCHEN ===');
-    console.log('Order:', order.orderNumber);
-    console.log('Kitchen ID:', kitchenId);
-    console.log('Order items:', order.items.map(i => ({ productId: i.product._id, qty: i.quantity })));
+    // console.log('=== ASSIGNING ORDER TO KITCHEN ===');
+    // console.log('Order:', order.orderNumber);
+    // console.log('Kitchen ID:', kitchenId);
+    // console.log('Order items:', order.items.map(i => ({ productId: i.product._id, qty: i.quantity })));
 
     // Fetch kitchen WITHOUT populating - keep product as ID
     const kitchen = await Kitchen.findById(kitchenId);
     
     if (kitchen) {
-      console.log('Kitchen found:', kitchen.name);
-      console.log('Assigned products BEFORE:', kitchen.assignedProducts.map(ap => ({
-        productId: ap.product.toString(),
-        assigned: ap.assigned,
-        used: ap.used
-      })));
+      // console.log('Kitchen found:', kitchen.name);
+      // console.log('Assigned products BEFORE:', kitchen.assignedProducts.map(ap => ({
+      //   productId: ap.product.toString(),
+      //   assigned: ap.assigned,
+      //   used: ap.used
+      // })));
       
       // Process each order item
       for (const item of order.items) {
         if (item.product) {
-          console.log('Processing item:', item.product._id, 'Quantity:', item.quantity);
+          // console.log('Processing item:', item.product._id, 'Quantity:', item.quantity);
           
           // Find the assignment for this product - COMPARE IDs DIRECTLY
           const assignment = kitchen.assignedProducts.find(
@@ -251,9 +250,9 @@ export const assignKitchenToOrder = async (req, res) => {
             // Only increment USED, don't touch ASSIGNED
             const oldUsed = assignment.used || 0;
             assignment.used = Number(oldUsed) + Number(item.quantity);
-            console.log(`Updated product ${item.product._id}: used ${oldUsed} -> ${assignment.used}`);
+            // console.log(`Updated product ${item.product._id}: used ${oldUsed} -> ${assignment.used}`);
           } else {
-            console.log('WARNING: Product not assigned to kitchen:', item.product._id);
+            // console.log('WARNING: Product not assigned to kitchen:', item.product._id);
           }
 
           // Create stock log
@@ -270,18 +269,18 @@ export const assignKitchenToOrder = async (req, res) => {
         }
       }
       
-      console.log('Assigned products AFTER:', kitchen.assignedProducts.map(ap => ({
-        productId: ap.product.toString(),
-        assigned: ap.assigned,
-        used: ap.used
-      })));
+      // console.log('Assigned products AFTER:', kitchen.assignedProducts.map(ap => ({
+      //   productId: ap.product.toString(),
+      //   assigned: ap.assigned,
+      //   used: ap.used
+      // })));
       
       // Mark as modified and save
       kitchen.markModified('assignedProducts');
       await kitchen.save();
-      console.log('Kitchen saved successfully');
+      // console.log('Kitchen saved successfully');
     } else {
-      console.log('ERROR: Kitchen not found:', kitchenId);
+      // console.log('ERROR: Kitchen not found:', kitchenId);
     }
 
     // Emit socket events
@@ -302,13 +301,13 @@ export const assignKitchenToOrder = async (req, res) => {
         timestamp: new Date()
       });
 
-      console.log('Socket events emitted for order:', order.orderNumber);
+      // console.log('Socket events emitted for order:', order.orderNumber);
     }
 
     res.json({ success: true, order });
   } catch (error) {
     console.error('assignKitchenToOrder error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -351,7 +350,7 @@ export const updateOrderStatus = async (req, res) => {
     res.json({ success: true, order });
   } catch (error) {
     console.error('updateOrderStatus error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -364,6 +363,6 @@ export const deleteOrder = async (req, res) => {
     res.json({ success: true, message: 'Order deleted successfully' });
   } catch (error) {
     console.error('deleteOrder error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
