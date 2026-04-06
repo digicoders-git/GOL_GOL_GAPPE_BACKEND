@@ -35,6 +35,8 @@ export const getMyKitchen = async (req, res) => {
 
 export const getMyKitchenOrders = async (req, res) => {
   try {
+    console.log('getMyKitchenOrders called - User:', req.user._id, 'Role:', req.user.role);
+    
     let kitchen = await Kitchen.findOne({ billingAdmin: req.user._id });
 
     if (!kitchen && req.user.kitchen) {
@@ -42,44 +44,64 @@ export const getMyKitchenOrders = async (req, res) => {
     }
 
     if (!kitchen) {
+      console.log('No kitchen found for billing admin');
       return res.json({ success: true, orders: [] });
     }
 
+    console.log('Kitchen found:', kitchen.name, 'ID:', kitchen._id);
+
+    // Fetch both Bills and Orders (assigned + unassigned)
     const [bills, onlineOrders] = await Promise.all([
       Billing.find({ 
         $or: [
-          { kitchen: kitchen._id },
-          { kitchen: { $exists: false } },
-          { kitchen: null }
+          { kitchen: kitchen._id },           // Assigned to this kitchen
+          { kitchen: { $exists: false } },    // Not assigned yet
+          { kitchen: null }                   // Not assigned yet
         ]
       })
-        .populate('items.product', 'name price unit')
-        .sort({ createdAt: -1 }),
+        .populate('items.product', 'name price unit thumbnail')
+        .populate('kitchen', 'name location')
+        .sort({ createdAt: -1 })
+        .lean(),
       Order.find({ 
         $or: [
-          { kitchen: kitchen._id },
-          { kitchen: { $exists: false } },
-          { kitchen: null }
+          { kitchen: kitchen._id },           // Assigned to this kitchen
+          { kitchen: { $exists: false } },    // Not assigned yet
+          { kitchen: null }                   // Not assigned yet
         ]
       })
-        .populate('items.product', 'name price unit')
-        .populate('customer', 'name phone')
+        .populate('items.product', 'name price unit thumbnail')
+        .populate('customer', 'name mobile email')
+        .populate('kitchen', 'name location')
         .sort({ createdAt: -1 })
+        .lean()
     ]);
+
+    console.log('Bills found:', bills.length);
+    console.log('Online Orders found:', onlineOrders.length);
 
     // Merge and normalize for frontend
     const allOrders = [
-      ...bills.map(b => ({ ...b.toObject(), type: 'BILL' })),
+      ...bills.map(b => ({ 
+        ...b, 
+        type: 'BILL',
+        customer: b.customer || { name: 'Walk-in Customer', phone: '' }
+      })),
       ...onlineOrders.map(o => ({ 
-        ...o.toObject(), 
+        ...o, 
         type: 'ORDER',
-        billNumber: o.orderNumber, // Map to field name frontend expects
-        customer: { name: o.customer?.name || 'Online Customer' }
+        billNumber: o.orderNumber, // Map orderNumber to billNumber for frontend
+        customer: { 
+          name: o.customer?.name || 'Online Customer',
+          phone: o.customer?.mobile || o.customer?.phone || ''
+        }
       }))
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+    console.log('Total orders returned:', allOrders.length);
     res.json({ success: true, orders: allOrders });
   } catch (error) {
+    console.error('getMyKitchenOrders error:', error);
     res.status(500).json({ message: error.message });
   }
 };

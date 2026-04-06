@@ -77,30 +77,43 @@ export const getUserOrders = async (req, res) => {
   try {
     console.log('getUserOrders called - User:', req.user);
     console.log('Searching for phone:', req.user.mobile);
+    console.log('Searching for user ID:', req.user._id);
     
-    // Try to find by phone first
-    let bills = await Billing.find({ 'customer.phone': req.user.mobile })
-      .populate('items.product', 'name thumbnail price')
-      .populate('kitchen', 'name location')
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    console.log('Bills found by phone:', bills.length);
-    
-    // If no bills found by phone, try by user ID (for online orders)
-    if (bills.length === 0) {
-      const onlineOrders = await Order.find({ customer: req.user._id })
+    // Search in both Billing and Order collections
+    const [bills, orders] = await Promise.all([
+      // Search bills by phone
+      Billing.find({ 'customer.phone': req.user.mobile })
         .populate('items.product', 'name thumbnail price')
         .populate('kitchen', 'name location')
-        .populate('customer', 'name mobile')
         .sort({ createdAt: -1 })
-        .lean();
-      
-      console.log('Online orders found by user ID:', onlineOrders.length);
-      bills = onlineOrders;
-    }
+        .lean(),
+      // Search orders by user ID
+      Order.find({ customer: req.user._id })
+        .populate('items.product', 'name thumbnail price')
+        .populate('kitchen', 'name location')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
     
-    res.json({ success: true, bills });
+    console.log('Bills found by phone:', bills.length);
+    console.log('Orders found by user ID:', orders.length);
+    
+    // Merge both and normalize
+    const allBills = [
+      ...bills.map(b => ({ ...b, type: 'BILL' })),
+      ...orders.map(o => ({ 
+        ...o, 
+        type: 'ORDER',
+        billNumber: o.orderNumber,
+        customer: {
+          name: req.user.name,
+          phone: req.user.mobile
+        }
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    console.log('Total bills/orders returned:', allBills.length);
+    res.json({ success: true, bills: allBills });
   } catch (error) {
     console.error('getUserOrders error:', error);
     res.status(500).json({ message: error.message });
