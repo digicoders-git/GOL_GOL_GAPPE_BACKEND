@@ -3,13 +3,23 @@ import mongoose from 'mongoose';
 const stockTransferSchema = new mongoose.Schema({
     fromUser: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        refPath: 'fromUserModel',
         required: true
+    },
+    fromUserModel: {
+        type: String,
+        enum: ['User', 'Admin'],
+        default: 'Admin'
     },
     toUser: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        refPath: 'toUserModel',
         required: true
+    },
+    toUserModel: {
+        type: String,
+        enum: ['User', 'Admin'],
+        default: 'Admin'
     },
     product: {
         type: mongoose.Schema.Types.ObjectId,
