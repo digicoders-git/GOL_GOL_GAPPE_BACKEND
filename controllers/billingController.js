@@ -75,10 +75,31 @@ export const getAllBills = async (req, res) => {
 
 export const getUserOrders = async (req, res) => {
   try {
-    const bills = await Billing.find({ 'customer.phone': req.user.mobile })
+    console.log('getUserOrders called - User:', req.user);
+    console.log('Searching for phone:', req.user.mobile);
+    
+    // Try to find by phone first
+    let bills = await Billing.find({ 'customer.phone': req.user.mobile })
       .populate('items.product', 'name thumbnail price')
       .populate('kitchen', 'name location')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    console.log('Bills found by phone:', bills.length);
+    
+    // If no bills found by phone, try by user ID (for online orders)
+    if (bills.length === 0) {
+      const onlineOrders = await Order.find({ customer: req.user._id })
+        .populate('items.product', 'name thumbnail price')
+        .populate('kitchen', 'name location')
+        .populate('customer', 'name mobile')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      console.log('Online orders found by user ID:', onlineOrders.length);
+      bills = onlineOrders;
+    }
+    
     res.json({ success: true, bills });
   } catch (error) {
     console.error('getUserOrders error:', error);
