@@ -12,7 +12,8 @@ export const getKitchenInventory = async (req, res) => {
       return res.status(404).json({ message: 'Kitchen not found' });
     }
 
-    const inventory = kitchen.assignedProducts || [];
+    // Filter out null products
+    const inventory = (kitchen.assignedProducts || []).filter(ap => ap.product !== null);
 
     res.json({ success: true, inventory });
   } catch (error) {
@@ -30,6 +31,9 @@ export const getAllKitchens = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const formattedKitchens = await Promise.all(kitchens.map(async (k) => {
+      // Filter out null/invalid products from populate
+      k.assignedProducts = k.assignedProducts.filter(ap => ap.product !== null);
+      
       let kitchenObj = k.toObject();
       
       // MIGRATION: Convert old quantity format to new assigned/used format
