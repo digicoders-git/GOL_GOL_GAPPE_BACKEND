@@ -736,8 +736,7 @@ export const getAvailableProducts = async (req, res) => {
     // Get all kitchens with their assigned products
     const kitchens = await Kitchen.find({})
       .populate({
-        path: 'assignedProducts.product',
-        select: 'name category unit price quantity status minStock thumbnail'
+        path: 'assignedProducts.product'
       })
       .lean();
 
