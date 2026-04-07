@@ -57,7 +57,6 @@ const localUpload = multer({
 // Save base64 image locally
 export const saveBase64Locally = async (base64String, folder = 'products') => {
   try {
-    // Extract the image data and extension
     const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
     if (!matches) {
       throw new Error('Invalid base64 image format');
@@ -65,29 +64,28 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     
     const extension = matches[1];
     const imageData = matches[2];
-    
-    // Generate unique filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `image-${uniqueSuffix}.${extension}`;
     
-    // Ensure folder exists - add 'products' prefix
+    // Save to local filesystem
     const folderPath = path.join(uploadsDir, 'products', folder);
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
     
-    // Create full path
     const fullPath = path.join(folderPath, filename);
-    
-    // Write file
     fs.writeFileSync(fullPath, imageData, 'base64');
     
     console.log('Image saved locally:', fullPath);
+    console.log('File exists:', fs.existsSync(fullPath));
     
-    // Return URL - folder already contains 'thumbnails' or 'images'
     const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
+    const imageUrl = `${serverUrl}/uploads/products/${folder}/${filename}`;
+    
+    console.log('Image URL:', imageUrl);
+    
     return {
-      secure_url: `${serverUrl}/uploads/products/${folder}/${filename}`,
+      secure_url: imageUrl,
       public_id: filename
     };
   } catch (error) {
