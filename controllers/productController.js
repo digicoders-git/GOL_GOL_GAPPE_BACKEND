@@ -764,7 +764,6 @@ export const getAvailableProducts = async (req, res) => {
     const kitchens = await Kitchen.find({})
       .populate({
         path: 'assignedProducts.product',
-        select: 'name shortName description category foodType price discountPrice images thumbnail tags unit minStock',
         populate: {
           path: 'activeOffer',
           match: { 
