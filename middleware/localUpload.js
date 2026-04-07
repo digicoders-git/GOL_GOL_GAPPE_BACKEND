@@ -54,7 +54,7 @@ const localUpload = multer({
   },
 });
 
-// Save base64 image locally
+// Save base64 image locally AND to Cloudinary
 export const saveBase64Locally = async (base64String, folder = 'products') => {
   try {
     const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
@@ -79,14 +79,34 @@ export const saveBase64Locally = async (base64String, folder = 'products') => {
     console.log('Image saved locally:', fullPath);
     console.log('File exists:', fs.existsSync(fullPath));
     
-    const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
-    const imageUrl = `${serverUrl}/uploads/products/${folder}/${filename}`;
+    // Upload to Cloudinary
+    let cloudinaryUrl = null;
+    try {
+      const { v2: cloudinary } = await import('cloudinary');
+      await import('../config/cloudinary.js');
+      
+      const uploadResponse = await cloudinary.uploader.upload(base64String, {
+        folder: 'golgolgappe_products',
+        resource_type: 'auto'
+      });
+      cloudinaryUrl = uploadResponse.secure_url;
+      console.log('Image uploaded to Cloudinary:', cloudinaryUrl);
+    } catch (cloudinaryError) {
+      console.warn('Cloudinary upload failed, using local URL:', cloudinaryError.message);
+    }
     
-    console.log('Image URL:', imageUrl);
+    // Use Cloudinary URL if available, otherwise use local URL
+    const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
+    const localImageUrl = `${serverUrl}/uploads/products/${folder}/${filename}`;
+    const imageUrl = cloudinaryUrl || localImageUrl;
+    
+    console.log('Final Image URL:', imageUrl);
     
     return {
       secure_url: imageUrl,
-      public_id: filename
+      public_id: filename,
+      cloudinaryUrl: cloudinaryUrl,
+      localUrl: localImageUrl
     };
   } catch (error) {
     console.error('Save base64 error:', error);
