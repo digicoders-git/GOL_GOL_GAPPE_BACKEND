@@ -114,31 +114,35 @@ export const createOrder = async (req, res) => {
 
     // Mark offer as used in a completed order
     if (offerData) {
+      console.log('=== UPDATING OFFER USAGE ===');
+      console.log('Offer Code:', offerData.code);
+      console.log('Offer ID:', offerData.offerId);
+      
       const offer = await Offer.findById(offerData.offerId);
       if (offer) {
-        // Find existing usage entry or create new one
-        const existingUsage = offer.usedByCustomers.find(usage => {
-          const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
-          const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-          return userIdMatch || mobileMatch;
+        console.log('Offer found - Current usedCount:', offer.usedCount);
+        console.log('Offer maxUses:', offer.maxUses);
+        
+        // Add new usage entry for this order
+        offer.usedByCustomers.push({
+          customer: customerId,
+          customerMobile: customerMobile,
+          orderId: order._id,
+          orderCompleted: true,
+          usedAt: new Date()
         });
-
-        if (existingUsage) {
-          // Mark as order completed
-          existingUsage.orderCompleted = true;
-          existingUsage.orderId = order._id;
-        } else {
-          // Add new usage entry
-          offer.usedByCustomers.push({
-            customer: customerId,
-            customerMobile: customerMobile,
-            orderId: order._id,
-            orderCompleted: true,
-            usedAt: new Date()
-          });
-          offer.usedCount += 1;
-        }
+        
+        // Increment usedCount for every order
+        offer.usedCount += 1;
+        
+        console.log('New usedCount:', offer.usedCount);
+        console.log('UsedByCustomers length:', offer.usedByCustomers.length);
+        
         await offer.save();
+        console.log('Offer saved successfully');
+        console.log('=== OFFER UPDATE COMPLETE ===');
+      } else {
+        console.log('ERROR: Offer not found with ID:', offerData.offerId);
       }
     }
 
