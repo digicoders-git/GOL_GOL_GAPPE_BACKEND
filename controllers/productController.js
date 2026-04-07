@@ -5,6 +5,7 @@ import StockTransfer from '../models/StockTransfer.js';
 import Kitchen from '../models/Kitchen.js';
 import User from '../models/User.js';
 import Admin from '../models/Admin.js';
+import Offer from '../models/Offer.js';
 import { clearCache } from '../middleware/cache.js';
 import { saveBase64Locally } from '../middleware/localUpload.js';
 
@@ -85,13 +86,9 @@ export const getProductById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 export const createProduct = async (req, res) => {
   try {
-    // console.log('=== CREATE PRODUCT REQUEST ===');
-    // console.log('Request body:', JSON.stringify(req.body, null, 2));
-    // console.log('Request files:', req.files);
-    // console.log('User:', req.user?._id, req.user?.role);
-
     let productData = { ...req.body };
 
     // Handle base64 thumbnail upload
@@ -122,17 +119,14 @@ export const createProduct = async (req, res) => {
       productData.images = imageUploads;
     }
 
-    // console.log('Final product data before saving:', JSON.stringify(productData, null, 2));
-
     const product = await Product.create(productData);
-    // console.log('Product created successfully:', product._id);
 
     // Clear cache after creating product
     try {
       const { clearCache } = await import('../middleware/cache.js');
       clearCache('products');
     } catch (cacheError) {
-      // console.log('Cache clear failed, but continuing:', cacheError.message);
+      // continue
     }
 
     res.status(201).json({ success: true, product });
@@ -140,10 +134,8 @@ export const createProduct = async (req, res) => {
     console.error('=== CREATE PRODUCT ERROR ===');
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
 
     if (error.name === 'ValidationError') {
-      console.error('Validation errors:', error.errors);
       const validationErrors = Object.keys(error.errors).map(key => ({
         field: key,
         message: error.errors[key].message
@@ -166,17 +158,13 @@ export const createProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to create product',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 };
 
 export const updateProduct = async (req, res) => {
   try {
-    // console.log('Updating product with data:', req.body);
-    // console.log('Files received:', req.files);
-
     let updateData = { ...req.body };
 
     // Handle base64 thumbnail upload
@@ -207,7 +195,6 @@ export const updateProduct = async (req, res) => {
       updateData.images = imageUploads;
     }
 
-    // console.log('Final update data before saving:', updateData);
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -223,7 +210,7 @@ export const updateProduct = async (req, res) => {
       const { clearCache } = await import('../middleware/cache.js');
       clearCache('products');
     } catch (cacheError) {
-      // console.log('Cache clear failed, but continuing:', cacheError.message);
+      // continue
     }
 
     res.json({ success: true, product });
@@ -278,7 +265,6 @@ export const addQuantity = async (req, res) => {
       const previousQuantity = product.quantity;
       product.quantity += Number(quantity);
 
-      // Update status based on quantity
       if (product.quantity > product.minStock) {
         product.status = 'In Stock';
       } else if (product.quantity > 0) {
@@ -289,7 +275,6 @@ export const addQuantity = async (req, res) => {
 
       await product.save();
 
-      // Create stock log
       await StockLog.create({
         product: product._id,
         type: 'ADD',
@@ -300,7 +285,6 @@ export const addQuantity = async (req, res) => {
         user: req.user._id
       });
     } else {
-      // Create new product
       product = await Product.create({
         name: productName,
         category,
@@ -309,7 +293,6 @@ export const addQuantity = async (req, res) => {
         status: Number(quantity) > 10 ? 'In Stock' : 'Low Stock'
       });
 
-      // Create stock log
       await StockLog.create({
         product: product._id,
         type: 'ADD',
@@ -341,10 +324,8 @@ export const transferStock = async (req, res) => {
     const product = await Product.findById(finalProductId);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    // Try to find recipient in Admin collection first (kitchen_admin is there)
     let recipient = await Admin.findById(finalToUserId);
 
-    // If not found in Admin, try User collection
     if (!recipient) {
       recipient = await User.findById(finalToUserId);
     }
@@ -354,7 +335,6 @@ export const transferStock = async (req, res) => {
       return res.status(403).json({ message: 'Stock can only be assigned to Kitchen Admins' });
     }
 
-    // If sender is super_admin, admin, or billing_admin, check global product stock
     if (req.user.role === 'super_admin' || req.user.role === 'admin' || req.user.role === 'billing_admin') {
       if (product.quantity < quantity) {
         return res.status(400).json({ message: 'Insufficient stock in main inventory' });
@@ -362,7 +342,6 @@ export const transferStock = async (req, res) => {
       product.quantity -= Number(quantity);
       await product.save();
     } else {
-      // Check sender's specific inventory (e.g. for sub-admins if needed)
       const fromInv = await UserInventory.findOne({ user: fromUserId, product: finalProductId });
       if (!fromInv || fromInv.quantity < quantity) {
         return res.status(400).json({ message: 'Insufficient stock in your inventory' });
@@ -371,7 +350,6 @@ export const transferStock = async (req, res) => {
       await fromInv.save();
     }
 
-    // Increase recipient's stock in UserInventory (Legacy)
     let toInv = await UserInventory.findOne({ user: finalToUserId, product: finalProductId });
     if (!toInv) {
       toInv = new UserInventory({ user: finalToUserId, product: finalProductId, quantity: 0 });
@@ -379,7 +357,6 @@ export const transferStock = async (req, res) => {
     toInv.quantity += Number(quantity);
     await toInv.save();
 
-    // SYNC WITH KITCHEN MODEL (Modern)
     const kitchen = await Kitchen.findOne({
       $or: [{ admin: finalToUserId }, { billingAdmin: finalToUserId }]
     });
@@ -399,21 +376,18 @@ export const transferStock = async (req, res) => {
         });
       }
       await kitchen.save();
-      // console.log(`Kitchen stock updated for ${kitchen.name}: +${quantity} units assigned`);
     }
 
-    // Log the transfer
     await StockTransfer.create({
       fromUser: fromUserId,
-      fromUserModel: 'Admin', // Since super_admin/billing_admin are in Admin collection
+      fromUserModel: 'Admin',
       toUser: finalToUserId,
-      toUserModel: 'Admin', // Kitchen admins are in Admin collection
+      toUserModel: 'Admin',
       product: finalProductId,
       quantity,
       notes
     });
 
-    // Notify all panels via WebSockets
     const io = req.app.get('io');
     if (io) {
       io.to('admin-panel').emit('stock-updated', { timestamp: new Date() });
@@ -428,10 +402,8 @@ export const transferStock = async (req, res) => {
       }
     }
 
-    // Clear available products cache since kitchen stock changed
     clearCache('available-products');
 
-    // console.log('Stock transferred successfully');
     res.json({ success: true, message: 'Stock transferred successfully' });
   } catch (error) {
     console.error('transferStock error:', error);
@@ -448,7 +420,6 @@ export const getUserInventory = async (req, res) => {
     const { role, _id: userId } = req.user;
     const { view } = req.query;
 
-    // For super_admin/admin, allow switching between Warehouse and Total Kitchen Stock
     if (role === 'super_admin' || role === 'admin') {
       if (view === 'kitchen') {
         const kitchens = await Kitchen.find({}).populate({
@@ -456,7 +427,6 @@ export const getUserInventory = async (req, res) => {
           select: 'name category unit price quantity status minStock thumbnail'
         });
 
-        // Aggregate stock across all kitchens
         const aggregateMap = {};
         kitchens.forEach(k => {
           k.assignedProducts.forEach(item => {
@@ -482,7 +452,6 @@ export const getUserInventory = async (req, res) => {
           const remaining = item.assigned - item.used;
           const minStock = item.product.minStock || 10;
           
-          // Calculate status based on remaining quantity
           let status = 'Out of Stock';
           if (remaining > minStock) {
             status = 'In Stock';
@@ -494,16 +463,14 @@ export const getUserInventory = async (req, res) => {
             ...item,
             product: {
               ...item.product,
-              status // Add calculated status
+              status
             },
             remaining,
-            status // Add status at inventory level too
+            status
           };
         });
-        // console.log(`Aggregate Kitchen inventory fetched: ${inventory.length} products total.`);
         return res.json({ success: true, inventory });
       } else {
-        // Warehouse View (Default)
         const products = await Product.find({})
           .select('name category unit price quantity status minStock thumbnail')
           .lean();
@@ -512,7 +479,6 @@ export const getUserInventory = async (req, res) => {
           const quantity = p.quantity || 0;
           const minStock = p.minStock || 10;
           
-          // Calculate status based on quantity
           let status = 'Out of Stock';
           if (quantity > minStock) {
             status = 'In Stock';
@@ -524,10 +490,10 @@ export const getUserInventory = async (req, res) => {
             _id: p._id,
             product: {
               ...p,
-              status // Override with calculated status
+              status
             },
             quantity,
-            status, // Add status at inventory level too
+            status,
             user: userId,
             isWarehouse: true
           };
@@ -536,7 +502,6 @@ export const getUserInventory = async (req, res) => {
       }
     }
 
-    // For kitchen or billing admins, fetch from their assigned Kitchen's inventory
     if (role === 'kitchen_admin' || role === 'billing_admin') {
       const kitchen = await Kitchen.findOne({
         $or: [{ admin: userId }, { billingAdmin: userId }]
@@ -546,17 +511,9 @@ export const getUserInventory = async (req, res) => {
       });
 
       if (kitchen) {
-        // console.log('Kitchen found:', kitchen.name);
-        // console.log('Assigned products:', JSON.stringify(kitchen.assignedProducts, null, 2));
-        
-        // Filter out items where product population failed (e.g., product deleted)
         const validProducts = (kitchen.assignedProducts || []).filter(item => {
           if (!item.product) {
-            // console.log('Product is null for item:', item._id);
             return false;
-          }
-          if (!item.product.name) {
-            // console.log('Product name is missing for product:', item.product._id);
           }
           return true;
         });
@@ -565,7 +522,6 @@ export const getUserInventory = async (req, res) => {
           const remaining = (item.assigned || 0) - (item.used || 0);
           const minStock = item.product.minStock || 10;
           
-          // Calculate status based on remaining quantity
           let status = 'Out of Stock';
           if (remaining > minStock) {
             status = 'In Stock';
@@ -595,14 +551,10 @@ export const getUserInventory = async (req, res) => {
           };
         });
 
-        // console.log(`Inventory fetched from Kitchen: ${kitchen.name} for user: ${userId} (${validProducts.length} items)`);
         return res.json({ success: true, inventory });
-      } else {
-        // console.log('No kitchen found for user:', userId);
       }
     }
 
-    // Default: fetch from UserInventory
     const populatedInventory = await UserInventory.find({ user: userId })
       .populate({
         path: 'product',
@@ -617,7 +569,6 @@ export const getUserInventory = async (req, res) => {
         const quantity = item.quantity || 0;
         const minStock = item.product.minStock || 10;
         
-        // Calculate status based on quantity
         let status = 'Out of Stock';
         if (quantity > minStock) {
           status = 'In Stock';
@@ -629,10 +580,10 @@ export const getUserInventory = async (req, res) => {
           _id: item._id,
           product: {
             ...item.product,
-            status // Add calculated status
+            status
           },
           quantity,
-          status, // Add status at inventory level too
+          status,
           user: userId
         };
       });
@@ -653,21 +604,17 @@ export const getTransferHistory = async (req, res) => {
     if (role === 'super_admin' || role === 'admin') {
       query = {};
     } else if (role === 'kitchen_admin' || role === 'billing_admin') {
-      // Find the kitchen for this user
       const kitchen = await Kitchen.findOne({
         $or: [{ admin: userId }, { billingAdmin: userId }]
       });
 
       if (!kitchen) {
-        // If not associated with any kitchen, return empty or self-transfers
         query = { $or: [{ fromUser: userId }, { toUser: userId }] };
       } else {
-        // Include transfers to/from the kitchen admin AND billing admin
         const userIds = [];
         if (kitchen.admin) userIds.push(kitchen.admin);
         if (kitchen.billingAdmin) userIds.push(kitchen.billingAdmin);
 
-        // Ensure we search by ID value
         query = {
           $or: [
             { toUser: { $in: userIds } },
@@ -679,7 +626,6 @@ export const getTransferHistory = async (req, res) => {
       query = { $or: [{ fromUser: userId }, { toUser: userId }] };
     }
 
-    // Use refPath for dynamic population
     const transfers = await StockTransfer.find(query)
       .populate('fromUser', 'email role name')
       .populate('toUser', 'email role name')
@@ -687,7 +633,6 @@ export const getTransferHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Add calculated status if product exists
     const transfersWithStatus = transfers.map(transfer => {
       if (transfer.product) {
         const quantity = transfer.product.quantity || 0;
@@ -711,7 +656,6 @@ export const getTransferHistory = async (req, res) => {
       return transfer;
     });
 
-    // console.log(`Fetched ${transfersWithStatus.length} transfers for role: ${role}`);
     res.json({ success: true, transfers: transfersWithStatus });
   } catch (error) {
     console.error('getTransferHistory error:', error);
@@ -721,8 +665,6 @@ export const getTransferHistory = async (req, res) => {
 
 export const getStockLogs = async (req, res) => {
   try {
-    // console.log('getStockLogs called by user:', req.user?._id, 'role:', req.user?.role);
-
     const logs = await StockLog.find()
       .populate({
         path: 'product',
@@ -736,18 +678,15 @@ export const getStockLogs = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(100);
 
-    // Filter out logs where product or user was deleted
     const validLogs = logs.map(log => ({
       ...log,
       product: log.product || { name: 'Deleted Product', category: 'N/A', unit: 'N/A' },
       user: log.user || { username: 'System', email: 'system@auto', role: 'system' }
     }));
 
-    // console.log(`Returning ${validLogs.length} stock logs`);
     res.json({ success: true, logs: validLogs });
   } catch (error) {
     console.error('getStockLogs error:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).json({ message: error.message, error: error.toString() });
   }
 };
@@ -772,8 +711,6 @@ export const uploadImage = async (req, res) => {
     if (!image || !image.startsWith('data:image')) {
       return res.status(400).json({ success: false, message: 'Valid base64 image required' });
     }
-
-    // console.log('Uploading image to Cloudinary folder:', folder);
 
     const result = await saveBase64Locally(image, folder);
 
@@ -800,15 +737,7 @@ export const getAvailableProducts = async (req, res) => {
     const kitchens = await Kitchen.find({})
       .populate({
         path: 'assignedProducts.product',
-        populate: {
-          path: 'activeOffer',
-          match: { 
-            isActive: true, 
-            expiryDate: { $gte: new Date() },
-            $expr: { $lt: ['$usedCount', '$maxUses'] }
-          },
-          select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
-        }
+        select: 'name category unit price quantity status minStock thumbnail'
       })
       .lean();
 
@@ -828,7 +757,6 @@ export const getAvailableProducts = async (req, res) => {
           
           console.log(`  Product: ${item.product.name}, Assigned: ${assigned}, Used: ${used}, Remaining: ${remaining}`);
           
-          // Only include products with available stock
           if (remaining > 0) {
             const productId = item.product._id.toString();
             
@@ -840,13 +768,41 @@ export const getAvailableProducts = async (req, res) => {
               };
             }
             
-            // Aggregate quantity across all kitchens and all assignments
             productMap[productId].quantity += remaining;
             console.log(`    -> Total quantity for ${item.product.name}: ${productMap[productId].quantity}`);
           }
         }
       });
     });
+
+    // Now populate activeOffer for each product
+    const productIds = Object.keys(productMap);
+    const offersMap = {};
+    
+    if (productIds.length > 0) {
+      const offers = await Offer.find({
+        applicableProducts: { $in: productIds },
+        isActive: true,
+        expiryDate: { $gte: new Date() },
+        $expr: { $lt: ['$usedCount', '$maxUses'] }
+      }).select('code title discountType discountValue offerType minOrderAmount expiryDate applicableProducts');
+      
+      console.log(`Found ${offers.length} active offers`);
+      
+      offers.forEach(offer => {
+        offer.applicableProducts.forEach(productId => {
+          offersMap[productId.toString()] = {
+            code: offer.code,
+            title: offer.title,
+            discountType: offer.discountType,
+            discountValue: offer.discountValue,
+            offerType: offer.offerType,
+            minOrderAmount: offer.minOrderAmount,
+            expiryDate: offer.expiryDate
+          };
+        });
+      });
+    }
 
     // Calculate proper status based on quantity and minStock
     const products = Object.values(productMap).map(product => {
@@ -864,12 +820,20 @@ export const getAvailableProducts = async (req, res) => {
         inStock = true;
       }
       
-      console.log(`Final: ${product.name} - Quantity: ${quantity}, Status: ${status}`);
+      const productId = product._id.toString();
+      const activeOffer = offersMap[productId] || null;
+      
+      if (activeOffer) {
+        console.log(`Product: ${product.name} - Has offer: ${activeOffer.code}`);
+      }
+      
+      console.log(`Final: ${product.name} - Quantity: ${quantity}, Status: ${status}, Offer: ${activeOffer ? 'Yes' : 'No'}`);
       
       return {
         ...product,
         status,
-        inStock
+        inStock,
+        activeOffer
       };
     }).sort((a, b) => {
       if (a.category < b.category) return -1;
