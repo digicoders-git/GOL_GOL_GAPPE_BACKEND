@@ -6,6 +6,7 @@ import UserInventory from '../models/UserInventory.js';
 import Offer from '../models/Offer.js';
 import StockLog from '../models/StockLog.js';
 import { getIO } from '../config/socket.js';
+import { clearCache } from '../middleware/cache.js';
 
 export const createOrder = async (req, res) => {
   try {

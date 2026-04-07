@@ -7,6 +7,7 @@ import Order from '../models/Order.js';
 import Offer from '../models/Offer.js';
 import mongoose from 'mongoose';
 import { getIO } from '../config/socket.js';
+import { clearCache } from '../middleware/cache.js';
 
 export const getAllBills = async (req, res) => {
   try {
@@ -314,6 +315,9 @@ export const createBill = async (req, res) => {
       await kitchenObj.save();
     }
 
+    // Clear available products cache since kitchen stock changed
+    clearCache('available-products');
+
     await bill.populate('kitchen', 'name location');
     await bill.populate('items.product', 'name unit');
 
@@ -540,6 +544,9 @@ export const updateBillStatus = async (req, res) => {
         kitchen.markModified('assignedProducts');
         await kitchen.save();
         // console.log('Kitchen stock updated for order:', bill._id);
+        
+        // Clear available products cache since kitchen stock changed
+        clearCache('available-products');
       }
     }
 
