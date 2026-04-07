@@ -37,32 +37,47 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
+    const product = await Product.findById(req.params.id)
+      .populate({
+        path: 'activeOffer',
+        match: { 
+          isActive: true, 
+          expiryDate: { $gte: new Date() },
+          $expr: { $lt: ['$usedCount', '$maxUses'] }
+        },
+        select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
+      })
+      .lean();
+      
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // Find UserInventory entries for this product with quantity > 0
-    const inventories = await UserInventory.find({
-      product: product._id,
-      quantity: { $gt: 0 }
-    });
-
-    const userIds = inventories.map(inv => inv.user);
-
-    // Find kitchens whose admins have this product
+    // Find all kitchens that have this product assigned
     const kitchens = await Kitchen.find({
-      admin: { $in: userIds }
-    }).select('name location manager status admin');
+      'assignedProducts.product': product._id
+    }).select('name location manager status admin assignedProducts').lean();
 
-    // Also attach stock quantity to each kitchen for frontend info
-    const kitchensWithStock = kitchens.map(k => {
-      const inv = inventories.find(i => i.user && k.admin && i.user.toString() === k.admin.toString());
+    // Calculate available quantity for each kitchen
+    const kitchensWithStock = kitchens.map(kitchen => {
+      const assignment = kitchen.assignedProducts.find(
+        ap => ap.product.toString() === product._id.toString()
+      );
+      
+      const assigned = assignment?.assigned || 0;
+      const used = assignment?.used || 0;
+      const availableQuantity = assigned - used;
+      
       return {
-        ...k.toObject(),
-        availableQuantity: inv ? inv.quantity : 0
+        _id: kitchen._id,
+        name: kitchen.name,
+        location: kitchen.location,
+        manager: kitchen.manager,
+        status: kitchen.status,
+        admin: kitchen.admin,
+        availableQuantity
       };
-    });
+    }).filter(k => k.availableQuantity > 0);
 
     res.json({ success: true, product, kitchens: kitchensWithStock });
   } catch (error) {
