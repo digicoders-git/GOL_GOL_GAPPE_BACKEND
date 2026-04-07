@@ -781,7 +781,7 @@ export const getAvailableProducts = async (req, res) => {
     
     kitchens.forEach(kitchen => {
       kitchen.assignedProducts.forEach(item => {
-        if (item.product) {
+        if (item.product && item.product._id) {
           const remaining = (item.assigned || 0) - (item.used || 0);
           
           // Only include products with available stock
@@ -796,7 +796,7 @@ export const getAvailableProducts = async (req, res) => {
               };
             }
             
-            // Aggregate quantity across all kitchens
+            // Aggregate quantity across all kitchens and all assignments
             productMap[productId].quantity += remaining;
           }
         }
