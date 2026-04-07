@@ -238,10 +238,29 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const productId = req.params.id;
+    
+    // Step 1: Sab kitchens se ye product remove karo
+    await Kitchen.updateMany(
+      {},
+      { $pull: { assignedProducts: { product: productId } } }
+    );
+    
+    // Step 2: Sab UserInventory entries remove karo
+    await UserInventory.deleteMany({ product: productId });
+    
+    // Step 3: Sab StockTransfer records remove karo
+    await StockTransfer.deleteMany({ product: productId });
+    
+    // Step 4: Sab StockLog entries remove karo
+    await StockLog.deleteMany({ product: productId });
+    
+    // Step 5: Finally product delete karo
+    const product = await Product.findByIdAndDelete(productId);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
     console.error('deleteProduct error:', error);
