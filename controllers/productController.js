@@ -760,8 +760,6 @@ export const uploadImage = async (req, res) => {
 
 export const getAvailableProducts = async (req, res) => {
   try {
-    console.log('=== GET AVAILABLE PRODUCTS ===');
-    
     // Get all kitchens with their assigned products
     const kitchens = await Kitchen.find({})
       .populate({
@@ -778,21 +776,15 @@ export const getAvailableProducts = async (req, res) => {
       })
       .lean();
 
-    console.log(`Found ${kitchens.length} kitchens`);
-
     // Aggregate products across all kitchens
     const productMap = {};
     
     kitchens.forEach(kitchen => {
-      console.log(`Kitchen: ${kitchen.name}, Products: ${kitchen.assignedProducts.length}`);
-      
       kitchen.assignedProducts.forEach(item => {
         if (item.product && item.product._id) {
           const assigned = item.assigned || 0;
           const used = item.used || 0;
           const remaining = assigned - used;
-          
-          console.log(`  Product: ${item.product.name}, Assigned: ${assigned}, Used: ${used}, Remaining: ${remaining}`);
           
           // Only include products with available stock
           if (remaining > 0) {
@@ -808,7 +800,6 @@ export const getAvailableProducts = async (req, res) => {
             
             // Aggregate quantity across all kitchens and all assignments
             productMap[productId].quantity += remaining;
-            console.log(`    -> Total quantity for ${item.product.name}: ${productMap[productId].quantity}`);
           }
         }
       });
@@ -830,8 +821,6 @@ export const getAvailableProducts = async (req, res) => {
         inStock = true;
       }
       
-      console.log(`Final: ${product.name} - Quantity: ${quantity}, Status: ${status}`);
-      
       return {
         ...product,
         status,
@@ -842,9 +831,6 @@ export const getAvailableProducts = async (req, res) => {
       if (a.category > b.category) return 1;
       return a.name.localeCompare(b.name);
     });
-
-    console.log(`Returning ${products.length} products`);
-    console.log('=== END ===\n');
 
     res.json({
       success: true,
