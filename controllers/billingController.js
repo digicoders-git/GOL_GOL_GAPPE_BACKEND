@@ -153,7 +153,7 @@ export const createBill = async (req, res) => {
       const alreadyUsed = offer.usedByCustomers.some(usage => {
         const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
         const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-        return userIdMatch || mobileMatch;
+        return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
       });
 
       if (alreadyUsed) {
@@ -234,13 +234,27 @@ export const createBill = async (req, res) => {
     if (offerData) {
       const offer = await Offer.findById(offerData.offerId);
       if (offer) {
-        offer.usedByCustomers.push({
-          customer: req.user?._id || null,
-          customerMobile: customerMobile,
-          product: items[0]?.product || null,
-          usedAt: new Date()
+        // Find existing usage entry or create new one
+        const existingUsage = offer.usedByCustomers.find(usage => {
+          const userIdMatch = req.user?._id && usage.customer && usage.customer.toString() === req.user._id.toString();
+          const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+          return userIdMatch || mobileMatch;
         });
-        offer.usedCount += 1;
+
+        if (existingUsage) {
+          // Mark as order completed
+          existingUsage.orderCompleted = true;
+        } else {
+          // Add new usage entry with orderCompleted: true
+          offer.usedByCustomers.push({
+            customer: req.user?._id || null,
+            customerMobile: customerMobile,
+            product: items[0]?.product || null,
+            orderCompleted: true,
+            usedAt: new Date()
+          });
+          offer.usedCount += 1;
+        }
         await offer.save();
         // console.log('Offer marked as used:', offerData.code);
       }
