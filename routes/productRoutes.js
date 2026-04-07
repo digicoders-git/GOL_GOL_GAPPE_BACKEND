@@ -28,8 +28,8 @@ const router = express.Router();
 //   next();
 // });
 
-// Public route with cache (reduced to 5 seconds for real-time kitchen stock)
-router.get('/available', cacheMiddleware('available-products', 5000), getAvailableProducts);
+// Public route - NO CACHE for real-time kitchen stock updates
+router.get('/available', getAvailableProducts);
 
 router.use(auth);
 
