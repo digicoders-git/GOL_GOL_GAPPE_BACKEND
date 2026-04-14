@@ -205,25 +205,39 @@ export const applyOffer = async (req, res) => {
     const alreadyUsed = offer.usedByCustomers.some(usage => {
       const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
       const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
-      // console.log('Checking usage - UserID match:', userIdMatch, 'Mobile match:', mobileMatch);
+      
+      // ⭐ Check if user already used this offer on THIS SPECIFIC PRODUCT
+      if (productId && usage.product) {
+        const productMatch = usage.product.toString() === productId.toString();
+        return (userIdMatch || mobileMatch) && productMatch && usage.orderCompleted === true;
+      }
+      
+      // For global offers, check if user used it at all
       return (userIdMatch || mobileMatch) && usage.orderCompleted === true;
     });
     
     // console.log('Already used:', alreadyUsed);
     
     if (alreadyUsed) {
-      return res.status(400).json({ message: 'You have already used this offer' });
+      return res.status(400).json({ message: 'You have already used this offer on this product' });
     }
 
     // Check if offer is already applied but order not completed yet
     const pendingApplication = offer.usedByCustomers.some(usage => {
       const userIdMatch = customerId && usage.customer && usage.customer.toString() === customerId.toString();
       const mobileMatch = customerMobile && usage.customerMobile === customerMobile;
+      
+      // ⭐ Check pending application for THIS SPECIFIC PRODUCT
+      if (productId && usage.product) {
+        const productMatch = usage.product.toString() === productId.toString();
+        return (userIdMatch || mobileMatch) && productMatch && !usage.orderCompleted;
+      }
+      
       return (userIdMatch || mobileMatch) && !usage.orderCompleted;
     });
 
     if (pendingApplication) {
-      return res.status(400).json({ message: 'Offer already applied. Please complete your order or remove the offer first.' });
+      return res.status(400).json({ message: 'Offer already applied on this product. Please complete your order first.' });
     }
     
     // For product-specific offers, validate product

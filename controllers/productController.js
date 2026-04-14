@@ -17,7 +17,8 @@ export const getAllProducts = async (req, res) => {
         match: { 
           isActive: true, 
           expiryDate: { $gte: new Date() },
-          $expr: { $lt: ['$usedCount', '$maxUses'] }
+          $expr: { $lt: ['$usedCount', '$maxUses'] },
+          isPublic: true  // ⭐ ONLY show public offers
         },
         select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
       })
@@ -25,10 +26,16 @@ export const getAllProducts = async (req, res) => {
       .lean()
       .maxTimeMS(5000);
 
+    // ⭐ Remove activeOffer from response (hide all offers from frontend)
+    const productsWithoutOffers = products.map(product => {
+      const { activeOffer, ...productWithoutOffer } = product;
+      return productWithoutOffer;
+    });
+
     res.json({
       success: true,
-      products,
-      count: products.length
+      products: productsWithoutOffers,
+      count: productsWithoutOffers.length
     });
   } catch (error) {
     console.error('getAllProducts error:', error);
@@ -44,7 +51,8 @@ export const getProductById = async (req, res) => {
         match: { 
           isActive: true, 
           expiryDate: { $gte: new Date() },
-          $expr: { $lt: ['$usedCount', '$maxUses'] }
+          $expr: { $lt: ['$usedCount', '$maxUses'] },
+          isPublic: true  // ⭐ ONLY show public offers
         },
         select: 'code title discountType discountValue offerType minOrderAmount expiryDate'
       })
@@ -53,6 +61,9 @@ export const getProductById = async (req, res) => {
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
+
+    // ⭐ Remove activeOffer from response (hide offer from frontend)
+    const { activeOffer, ...productWithoutOffer } = product;
 
     // Find all kitchens that have this product assigned
     const kitchens = await Kitchen.find({
@@ -80,7 +91,7 @@ export const getProductById = async (req, res) => {
       };
     }).filter(k => k.availableQuantity > 0);
 
-    res.json({ success: true, product, kitchens: kitchensWithStock });
+    res.json({ success: true, product: productWithoutOffer, kitchens: kitchensWithStock });
   } catch (error) {
     console.error('getProductById error:', error);
     res.status(500).json({ success: false, message: error.message });

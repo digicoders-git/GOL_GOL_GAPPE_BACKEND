@@ -21,10 +21,6 @@ export const createOrder = async (req, res) => {
     let offerData = null;
     if (offerCode) {
       // console.log('Processing offer in order:', offerCode);
-      
-      if (items.length !== 1) {
-        return res.status(400).json({ message: 'Offer can only be applied to 1 item' });
-      }
 
       const offer = await Offer.findOne({ code: offerCode.toUpperCase() });
       if (!offer) {
@@ -58,15 +54,24 @@ export const createOrder = async (req, res) => {
           return res.status(400).json({ message: 'No products configured for this offer' });
         }
         
-        const orderProductId = items[0]?.product?.toString();
-        const isApplicable = offer.applicableProducts.some(p => p.toString() === orderProductId);
+        // Check if ANY item in cart is applicable for this offer
+        const hasApplicableProduct = items.some(item => 
+          offer.applicableProducts.some(p => p.toString() === item.product.toString())
+        );
         
-        if (!isApplicable) {
-          return res.status(400).json({ message: 'This offer is not applicable to the selected product' });
+        if (!hasApplicableProduct) {
+          return res.status(400).json({ message: 'This offer is not applicable to any items in your cart' });
         }
       }
       
       const orderAmount = req.body.totalAmount;
+      
+      // Check minimum order amount
+      if (offer.minOrderAmount > 0 && orderAmount < offer.minOrderAmount) {
+        return res.status(400).json({ 
+          message: `Minimum order amount of ₹${offer.minOrderAmount} required for this offer` 
+        });
+      }
       
       const discount = offer.discountType === 'percentage'
         ? (orderAmount * offer.discountValue) / 100

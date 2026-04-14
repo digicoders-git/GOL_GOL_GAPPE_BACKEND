@@ -27,6 +27,7 @@ const offerSchema = new mongoose.Schema({
   minOrderAmount: { type: Number, default: 0 },
   expiryDate: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
+  isPublic: { type: Boolean, default: false },
   usedByCustomers: [{
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     customerMobile: { type: String },
