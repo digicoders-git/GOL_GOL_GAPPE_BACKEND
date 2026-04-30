@@ -22,7 +22,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: true,
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
